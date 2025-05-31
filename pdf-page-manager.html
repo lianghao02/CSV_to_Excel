@@ -421,7 +421,7 @@
 		});
 	  if (container._sortable) container._sortable.destroy();
       container._sortable = Sortable.create(container, {
-        animation: 150, group: 'pdfpages', multiDrag: true, multiDragKey: 'null', selectedClass: 'selected',
+        animation: 150, group: 'pdfpages', multiDrag: true, multiDragKey: null, selectedClass: 'selected',
         onAdd: evt => {
           const items = evt.items.length ? evt.items : [evt.item];
           items.forEach(it => {
