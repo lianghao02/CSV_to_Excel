@@ -326,13 +326,18 @@
 
 		if (i.selected) el.classList.add('selected');
 
-		// ===== 在這裡計算尺寸並套用到 el =====
+		// ===== 在這裡計算尺寸並套用到 el（含旋轉修正）=====
 		const baseW = 120;
-		const baseH = baseW * (842 / 595);
+		const baseH = baseW * (842 / 595); // A4 寬高比例
 		const scale = scalePercent / 100;
-		// 動態寬高，inline style 會覆蓋 CSS
-		el.style.width  = `${baseW * scale}px`;
-		el.style.height = `${baseH * scale}px`;
+		// 如果是 90 或 270 度，則寬高對調
+		const isRotated = i.rotation % 180 !== 0;
+		const w = isRotated ? baseH : baseW;
+		const h = isRotated ? baseW : baseH;
+		el.style.width  = `${w * scale}px`;
+		el.style.height = `${h * scale}px`;
+		// ======================================
+
 		// ======================================
 
 		// 圖片
