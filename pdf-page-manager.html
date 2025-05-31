@@ -4,10 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PDF & 圖片管理與重組工具（含旋轉功能）</title>
-	<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-	<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
-	<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
-	<link rel="manifest" href="site.webmanifest">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+  <link rel="manifest" href="site.webmanifest">
 
   <style>
     /* 全域設定 */
@@ -28,7 +28,7 @@
       border: 1px solid #ffeeba;
       padding: 15px;
       border-radius: 6px;
-      margin-bottom: 20px;
+      margin-top: 20px;
       color: #856404;
     }
     /* 檔案上傳區 */
@@ -44,7 +44,7 @@
     #dropZone.dragover {
       background: #eef6fc;
     }
-    /* 控制區群組 */
+    /* 控制區群組（上傳與編輯按鈕） */
     .controls {
       display: flex;
       flex-wrap: wrap;
@@ -86,6 +86,9 @@
       border: none;
       cursor: pointer;
       transition: background 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 4px;
     }
     button:hover:not(:disabled) {
       background: #005bb5;
@@ -178,6 +181,7 @@
       outline-offset: 2px;
     }
   </style>
+
   <!-- 套件載入 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
@@ -185,126 +189,240 @@
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/plugins/SortableMultiDrag.min.js"></script>
   <script>if(window.Sortable&&window.SortableMultiDrag)Sortable.mount(new SortableMultiDrag());</script>
 </head>
+
 <body>
   <h1>PDF & 圖片管理與重組工具（含旋轉功能）</h1>
+
+  <!-- 上傳區 -->
+  <div id="dropZone">
+    <strong>拖曳 PDF、圖片 或點擊新增</strong><br>
+    <input type="file" id="fileInput" accept="application/pdf,image/*" multiple style="margin-top:10px;" />
+  </div>
+
+  <!-- 編輯按鈕群組 -->
+  <div class="controls">
+    <div class="control-group">
+      <h3>編輯功能</h3>
+      <button id="insertBlankBtn">空白頁</button>
+      <button id="undoBtn">⎌ 上一步</button>
+      <button id="zoomOut">🔍- 縮小</button>
+      <button id="zoomIn">🔍+ 放大</button>
+      <label>品質<input type="number" id="qualityInput" min="10" max="300" step="10" value="100" style="width:60px" /></label>
+      <button id="rotateLeftBtn">⟲ 左旋</button>
+      <button id="rotateRightBtn">⟳ 右旋</button>
+      <label>間距<input type="range" id="gapRange" min="0" max="50" value="10" /></label>
+      <input type="text" id="outputName" placeholder="輸出檔名" style="margin-left:10px;" />
+      <button id="exportBtn" disabled>匯出 PDF</button>
+    </div>
+  </div>
+
+  <!-- 主頁面區 -->
+  <div class="area">
+    <h2>主頁面區</h2>
+    <div id="thumbnails" class="container"></div>
+  </div>
+
+  <!-- 將「頁面管理」群組放在主頁面區與暫存區之間 -->
+  <div class="control-group" style="justify-content:center; gap:10px; margin:20px 0;">
+    <!-- 按鈕順序：左、右、上、下、刪除、取消 -->
+    <button id="moveLeftBtn">← 向左移動</button>
+    <button id="moveRightBtn">→ 向右移動</button>
+    <button id="moveToThumbnailsBtn">↑ 移回主頁面</button>
+    <button id="moveToStagingBtn">↓ 移動到暫存區</button>
+    <button id="deleteSelectedBtn">🗑 刪除選取</button>
+    <button id="clearSelectBtn">× 取消選取</button>
+  </div>
+
+  <!-- 暫存區 -->
+  <div class="area">
+    <h2>暫存區</h2>
+    <div id="staging" class="container"></div>
+  </div>
+
+  <!-- 使用說明（移到最下方） -->
   <div class="instructions">
     <strong>使用說明：</strong>
     <ul>
-      <li>拖曳 PDF、圖片 或點擊新增</li>
-      <li>多選、拖曳、移動頁面</li>
-      <li>插入空白頁、刪除、縮放、旋轉</li>
-      <li>貼網路圖片網址、上一步復原</li>
+      <li>拖曳 PDF、圖片 或點擊上方的「新增」按鈕</li>
+      <li>點擊縮圖可選取，多選請按住 Shift 或 Ctrl（Cmd）</li>
+      <li>按「←/→」可在主頁面區調整位置，也可使用鍵盤操作</li>
+      <li>按「↑」可將選取頁面移回主頁面區</li>
+      <li>按「↓」可將選取頁面移到暫存區</li>
+      <li>按「🗑 刪除選取」可刪除所選頁面，也可按鍵盤 Delete 刪除</li>
+      <li>按「× 取消選取」可清空目前選擇</li>
+      <li>按「⟲/⟳」可旋轉選取頁面</li>
+      <li>可調整「品質」與「間距」來改變縮圖大小及間距</li>
+      <li>編輯完畢後，於「輸出檔名」欄位輸入檔名，點「匯出 PDF」即可</li>
+      <li>鍵盤快速鍵：Ctrl+Z / Cmd+Z → 復原；Delete → 刪除；←/→/↑/↓ → 移動</li>
     </ul>
   </div>
-  <div id="dropZone">
-  <strong>將 PDF 或圖片拖曳到此區域以上傳</strong>
-</div>
-  <!-- 檔案上傳／貼圖 -->
-  <div class="controls">
-    <div class="control-group">
-      <h3>檔案上傳／貼圖</h3>
-      <input type="file" id="fileInput" accept="application/pdf,image/*" multiple />
-      <input type="text" id="imageUrlInput" placeholder="貼上網路圖片網址，按 Enter 新增" style="flex:1; margin-left:10px;" />
-      <button id="insertBlankBtn">插入空白頁</button>
-      <button id="undoBtn">上一步</button>
-      <input type="text" id="outputName" placeholder="輸出檔名" />
-      <button id="exportBtn" disabled>匯出 PDF</button>
-    </div>
-    <div class="control-group">
-      <h3>縮放 & 旋轉</h3>
-      <button id="zoomOut">縮小</button>
-      <button id="zoomIn">放大</button>
-      <label>品質<input type="number" id="qualityInput" min="10" max="300" step="10" value="100" style="width:60px"/></label>
-      <button id="rotateLeftBtn">⟲ 向左旋轉</button>
-      <button id="rotateRightBtn">⟳ 向右旋轉</button>
-      <label>間距<input type="range" id="gapRange" min="0" max="50" value="10"/></label>
-    </div>
-    <div class="control-group">
-      <h3>頁面管理</h3>
-      <button id="deleteSelectedBtn" disabled>刪除選取</button>
-      <button id="clearSelectBtn">取消選取</button>
-    </div>
-  </div>
-  <!-- 主頁面區 -->
-  <div class="area"><h2>主頁面區</h2><div id="thumbnails" class="container"></div></div>
-  <!-- 移動按鈕 -->
-  <div class="control-group" style="justify-content:center; gap:10px; margin:40px 0;"><button id="moveToThumbnailsBtn">移回主頁面區</button><button id="moveToStagingBtn">移動到暫存區</button></div>
-  <!-- 暫存區 -->
-  <div class="area"><h2>暫存區</h2><div id="staging" class="container"></div></div>
+
   <script type="module">
     const { PDFDocument, degrees } = window.PDFLib;
     const pdfjsLib = window.pdfjsLib;
+    // 修正 workerSrc 為 valid URL
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+
     // 一次抓 DOM
-    const thumbnails = document.getElementById('thumbnails'), staging = document.getElementById('staging');
-    const fileInput = document.getElementById('fileInput'), imageUrlInput = document.getElementById('imageUrlInput');
-    const dropZone = document.getElementById('dropZone'), zoomIn = document.getElementById('zoomIn');
-    const zoomOut = document.getElementById('zoomOut'), qualityInput = document.getElementById('qualityInput');
-    const gapRange = document.getElementById('gapRange'), deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
-    const clearSelectBtn = document.getElementById('clearSelectBtn'), exportBtn = document.getElementById('exportBtn');
-    const outputName = document.getElementById('outputName'), insertBlankBtn = document.getElementById('insertBlankBtn');
-    const undoBtn = document.getElementById('undoBtn'), moveToStagingBtn = document.getElementById('moveToStagingBtn');
+    const dropZone        = document.getElementById('dropZone');
+    const fileInput       = document.getElementById('fileInput');
+    const thumbnails      = document.getElementById('thumbnails');
+    const staging         = document.getElementById('staging');
+    const insertBlankBtn  = document.getElementById('insertBlankBtn');
+    const undoBtn         = document.getElementById('undoBtn');
+    const zoomIn          = document.getElementById('zoomIn');
+    const zoomOut         = document.getElementById('zoomOut');
+    const qualityInput    = document.getElementById('qualityInput');
+    const gapRange        = document.getElementById('gapRange');
+    const rotateLeftBtn   = document.getElementById('rotateLeftBtn');
+    const rotateRightBtn  = document.getElementById('rotateRightBtn');
+    const moveLeftBtn     = document.getElementById('moveLeftBtn');
+    const moveRightBtn    = document.getElementById('moveRightBtn');
     const moveToThumbnailsBtn = document.getElementById('moveToThumbnailsBtn');
-    const observer = new IntersectionObserver(entries => entries.forEach(e => e.isIntersecting && observer.unobserve(e.target)), { root: thumbnails, threshold:0.1 });
-    let fileList=[], pdfDocs=[], pageList=[], undoStack=[]; let scalePercent=100, lastSelectedIndex=null;
-    const saveUndoState=() => {undoStack.push(JSON.stringify(pageList)); if(undoStack.length>20)undoStack.shift();}, undoLastAction=()=>{if(!undoStack.length)return alert('⚠️ 無操作可復原'); pageList=JSON.parse(undoStack.pop()); renderAll(); updateControls();};
-    const updateControls=()=>{deleteSelectedBtn.disabled=!pageList.some(i=>i.selected); exportBtn.disabled=!pageList.some(i=>i.area==='thumbnails');}, clearSelection=()=>{pageList.forEach(i=>i.selected=false); lastSelectedIndex=null; renderAll(); updateControls();};
+    const moveToStagingBtn    = document.getElementById('moveToStagingBtn');
+    const deleteSelectedBtn  = document.getElementById('deleteSelectedBtn');
+    const clearSelectBtn     = document.getElementById('clearSelectBtn');
+    const exportBtn         = document.getElementById('exportBtn');
+    const outputName        = document.getElementById('outputName');
+
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) observer.unobserve(e.target);
+      });
+    }, { root: thumbnails, threshold: 0.1 });
+
+    let fileList = [], pageList = [], undoStack = [];
+    let scalePercent = 100, lastSelectedIndex = null;
+
+    // 儲存 undo 狀態
+    const saveUndoState = () => {
+      undoStack.push(JSON.stringify(pageList));
+      if (undoStack.length > 20) undoStack.shift();
+    };
+    // 復原上一步
+    const undoLastAction = () => {
+      if (!undoStack.length) return alert('⚠️ 無操作可復原');
+      pageList = JSON.parse(undoStack.pop());
+      renderAll();
+      updateControls();
+    };
+
+    // 更新按鈕可用狀態
+    const updateControls = () => {
+      const anySelectedInThumb = pageList.some(i => i.selected && i.area === 'thumbnails');
+      const anySelectedInStage = pageList.some(i => i.selected && i.area === 'staging');
+      deleteSelectedBtn.disabled = !pageList.some(i => i.selected);
+      clearSelectBtn.disabled = !pageList.some(i => i.selected);
+      // 左/右 在兩區皆可用來交換區內順序
+      moveLeftBtn.disabled = !(anySelectedInThumb || anySelectedInStage);
+      moveRightBtn.disabled = !(anySelectedInThumb || anySelectedInStage);
+      // 上/下 動作只針對切換區域
+      moveToThumbnailsBtn.disabled = !anySelectedInStage;
+      moveToStagingBtn.disabled = !anySelectedInThumb;
+      exportBtn.disabled = !pageList.some(i => i.area === 'thumbnails');
+    };
+
+    // 取消所有選取
+    const clearSelection = () => {
+      pageList.forEach(i => i.selected = false);
+      lastSelectedIndex = null;
+      renderAll();
+      updateControls();
+    };
+
+    // 新增 PDF / 圖片 檔案
     async function addFiles(files) {
-	  for (const f of files) {
-		if (f.type === 'application/pdf') {
-		  const url = URL.createObjectURL(f);
-		  const pdf = await pdfjsLib.getDocument({ url }).promise;
-		  for (let i = 1; i <= pdf.numPages; i++) {
-			const page = await pdf.getPage(i);
-			const viewport = page.getViewport({ scale: 1.5 });
-			const canvas = document.createElement('canvas');
-			const context = canvas.getContext('2d');
-			canvas.width = viewport.width;
-			canvas.height = viewport.height;
+      for (const f of files) {
+        if (f.type === 'application/pdf') {
+          const url = URL.createObjectURL(f);
+          const pdf = await pdfjsLib.getDocument({ url }).promise;
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const viewport = page.getViewport({ scale: 1.5 });
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            await page.render({ canvasContext: context, viewport }).promise;
+            const dataURL = canvas.toDataURL();
 
-			await page.render({ canvasContext: context, viewport }).promise;
-			const dataURL = canvas.toDataURL();
+            pageList.push({
+              fileType: 'pdf',
+              fileIdx: fileList.length,
+              pageNum: i,
+              dataURL,
+              area: 'thumbnails',
+              originPageNum: i,
+              selected: false,
+              rotation: 0
+            });
+          }
+          fileList.push(f);
+          URL.revokeObjectURL(url);
+        } else if (f.type.startsWith('image/')) {
+          await addImageFile(f);
+        }
+      }
+      saveUndoState();
+      renderAll();
+      updateControls();
+    }
 
-			pageList.push({
-			  fileType: 'pdf',
-			  fileIdx: fileList.length,
-			  pageNum: i,
-			  dataURL,
-			  area: 'thumbnails',
-			  originPageNum: i,
-			  selected: false,
-			  rotation: 0
-			});
-		  }
-		  fileList.push(f);
-		  URL.revokeObjectURL(url);
-		} else if (f.type.startsWith('image/')) {
-		  await addImageFile(f);
-		}
-	  }
-	  saveUndoState();
-	  renderAll();
-	  updateControls();
-	}
+    // 新增單張圖片檔案
+    async function addImageFile(file) {
+      return new Promise(resolve => {
+        const img = new Image(), url = URL.createObjectURL(file);
+        img.onload = () => {
+          const cv = document.createElement('canvas');
+          cv.width = img.naturalWidth;
+          cv.height = img.naturalHeight;
+          cv.getContext('2d').drawImage(img, 0, 0);
+          pageList.push({
+            fileType: 'img',
+            dataURL: cv.toDataURL(),
+            area: 'thumbnails',
+            originPageNum: file.name,
+            selected: false,
+            rotation: 0
+          });
+          URL.revokeObjectURL(url);
+          resolve();
+        };
+        img.src = url;
+      });
+    }
 
-    async function addImageFile(file){return new Promise(resolve=>{const img=new Image(),url=URL.createObjectURL(file); img.onload=()=>{const cv=document.createElement('canvas'); cv.width=img.naturalWidth;cv.height=img.naturalHeight;cv.getContext('2d').drawImage(img,0,0); pageList.push({fileType:'img',dataURL:cv.toDataURL(),area:'thumbnails',originPageNum:file.name,selected:false,rotation:0}); URL.revokeObjectURL(url); resolve();}; img.src=url;});}
-    imageUrlInput.addEventListener('keydown',async e=>{if(e.key==='Enter'&&imageUrlInput.value.trim()){const url=imageUrlInput.value.trim(); imageUrlInput.value=''; try{const resp=await fetch(url),blob=await resp.blob(); if(!blob.type.startsWith('image/'))throw new Error('網址不是圖片'); await addImageFile(new File([blob],'網路圖',{type:blob.type})); saveUndoState(); renderAll(); updateControls();}catch(err){alert('圖片載入失敗：'+err.message);} }});
-    fileInput.onchange=e=>addFiles(e.target.files);
+    // 拖曳事件
+    dropZone.ondragover  = e => { e.preventDefault(); dropZone.classList.add('dragover'); };
+    dropZone.ondragleave = _ => dropZone.classList.remove('dragover');
+    dropZone.ondrop      = e => { e.preventDefault(); dropZone.classList.remove('dragover'); addFiles(e.dataTransfer.files); };
+    fileInput.onchange   = e => addFiles(e.target.files);
 
     // 插入空白頁
     function insertBlankPage() {
-      const w = 595, h = 842, scale = scalePercent / 100;
+      const w = 595, h = 842;
+      const scale = scalePercent / 100;
       const cv = document.createElement('canvas');
-      cv.width = w * scale; cv.height = h * scale;
+      cv.width = w * scale;
+      cv.height = h * scale;
       const ctx = cv.getContext('2d');
-      ctx.fillStyle = '#fff'; ctx.fillRect(0,0,cv.width,cv.height);
-      ctx.strokeStyle = '#ccc'; ctx.strokeRect(0,0,cv.width-1,cv.height-1);
-      ctx.font = 'bold 30px Arial'; ctx.fillStyle = '#ccc';
-      ctx.fillText('空白頁', cv.width/2-60, cv.height/2);
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, cv.width, cv.height);
+      ctx.strokeStyle = '#ccc';
+      ctx.strokeRect(0, 0, cv.width - 1, cv.height - 1);
+      ctx.font = 'bold 30px Arial';
+      ctx.fillStyle = '#ccc';
+      ctx.fillText('空白頁', cv.width / 2 - 60, cv.height / 2);
+
       pageList.push({
-        fileIdx: -1, pageNum: 1, dataURL: cv.toDataURL(),
-        area: 'thumbnails', originPageNum: '空白',
-        selected: false, isBlank: true, rotation: 0
+        fileIdx: -1,
+        pageNum: 1,
+        dataURL: cv.toDataURL(),
+        area: 'thumbnails',
+        originPageNum: '空白',
+        selected: false,
+        isBlank: true,
+        rotation: 0
       });
       saveUndoState();
       renderAll();
@@ -312,171 +430,112 @@
     }
 
     // 渲染所有頁面
-		function renderAll() {
-	  thumbnails.innerHTML = '';
-	  staging.innerHTML = '';
-	  let num = 1;
-	  pageList.forEach(i => { if (i.area === 'thumbnails') i.mainPageIdx = num++; });
-
-	  pageList.forEach((i, idx) => {
-		const el = document.createElement('div');
-		el.className = 'thumb';
-		el.dataset.idx = idx;
-		el.tabIndex = 0;
-
-		if (i.selected) el.classList.add('selected');
-
-		// ===== 在這裡計算尺寸並套用到 el（含旋轉修正）=====
-		const baseW = 120;
-		const baseH = baseW * (842 / 595); // A4 寬高比例
-		const scale = scalePercent / 100;
-		// 如果是 90 或 270 度，則寬高對調
-		const isRotated = i.rotation % 180 !== 0;
-		const w = isRotated ? baseH : baseW;
-		const h = isRotated ? baseW : baseH;
-		el.style.width  = `${w * scale}px`;
-		el.style.height = `${h * scale}px`;
-		// ======================================
-
-		// ======================================
-
-		// 圖片
-		const img = new Image();
-		img.src = i.dataURL;
-		img.style.transform = `rotate(${i.rotation}deg)`;
-		img.style.width  = '100%';
-		img.style.height = '100%';
-		el.appendChild(img);
-
-        // 標籤
+    function renderAll() {
+      thumbnails.innerHTML = '';
+      staging.innerHTML = '';
+      let num = 1;
+      pageList.forEach(i => { if (i.area === 'thumbnails') i.mainPageIdx = num++; });
+      pageList.forEach((i, idx) => {
+        const el = document.createElement('div');
+        el.className = 'thumb';
+        el.dataset.idx = idx;
+        el.tabIndex = 0;
+        if (i.selected) el.classList.add('selected');
+        const baseW = 120;
+        const baseH = baseW * (842 / 595);
+        const scale = scalePercent / 100;
+        const isRotated = i.rotation % 180 !== 0;
+        const w = isRotated ? baseH : baseW;
+        const h = isRotated ? baseW : baseH;
+        el.style.width = `${w * scale}px`;
+        el.style.height = `${h * scale}px`;
+        const img = new Image();
+        img.src = i.dataURL;
+        img.style.transform = `rotate(${i.rotation}deg)`;
+        img.style.width = '100%';
+        img.style.height = '100%';
+        el.appendChild(img);
         const lbl = document.createElement('div');
         lbl.className = 'page-label';
-        if (i.isBlank) {
-		  lbl.textContent = '空白頁';
-		} else if (i.fileType === 'pdf') {
-		  lbl.textContent = `檔${i.fileIdx + 1}-頁${i.originPageNum}`;
-		} else {
-		  lbl.textContent = '圖片';
-		}
-
+        if (i.isBlank) lbl.textContent = '空白頁';
+        else if (i.fileType === 'pdf') lbl.textContent = `檔${i.fileIdx + 1}-頁${i.originPageNum}`;
+        else lbl.textContent = '圖片';
         el.appendChild(lbl);
-
-        // 頁碼
         if (i.area === 'thumbnails') {
           const idxLbl = document.createElement('div');
           idxLbl.className = 'page-index';
           idxLbl.textContent = i.mainPageIdx;
           el.appendChild(idxLbl);
         }
-
-        // 刪除鈕
         const del = document.createElement('button');
         del.className = 'delete-btn';
         del.textContent = '×';
-        del.onclick = e => {
-          e.stopPropagation();
-          saveUndoState();
-          pageList.splice(idx, 1);
-          renderAll();
-          updateControls();
-        };
+        del.onclick = e => { e.stopPropagation(); saveUndoState(); pageList.splice(idx, 1); renderAll(); updateControls(); };
         el.appendChild(del);
-
-        // 點擊選取
         el.onclick = e => {
           if (e.target === del) return;
           if (e.shiftKey && lastSelectedIndex !== null) {
             const s = Math.min(lastSelectedIndex, idx), eI = Math.max(lastSelectedIndex, idx);
-            for (let j = s; j <= eI; j++)
-              if (pageList[j].area === i.area) pageList[j].selected = true;
+            for (let j = s; j <= eI; j++) if (pageList[j].area === i.area) pageList[j].selected = true;
           } else {
             if (!e.ctrlKey && !e.metaKey) clearSelection();
             pageList[idx].selected = !pageList[idx].selected;
             lastSelectedIndex = idx;
           }
-          renderAll();
-          updateControls();
+          renderAll(); updateControls();
         };
-
-        // 加入對應容器
         const container = i.area === 'thumbnails' ? thumbnails : staging;
         container.appendChild(el);
         observer.observe(el);
       });
-
       setupSortable(thumbnails, 'thumbnails');
       setupSortable(staging, 'staging');
     }
 
-    // 設置 Sortable
     function setupSortable(container, areaKey) {
       if (container._sortable) container._sortable.destroy();
       container._sortable = Sortable.create(container, {
-        animation: 150, group: 'pdfpages', multiDrag: true, multiDragKey: '', selectedClass: 'selected',
+        animation: 150,
+        group: 'pdfpages',
+        multiDrag: true,
+        multiDragKey: '',
+        selectedClass: 'selected',
         onAdd: evt => {
           const items = evt.items.length ? evt.items : [evt.item];
-          items.forEach(it => {
-            const idx = +it.dataset.idx;
-            pageList[idx].area = areaKey;
-            pageList[idx].selected = false;
-          });
-          saveUndoState();
-          syncOrder();
-          renderAll();
-          updateControls();
+          items.forEach(it => { const idx = +it.dataset.idx; pageList[idx].area = areaKey; pageList[idx].selected = false; });
+          saveUndoState(); syncOrder(); renderAll(); updateControls();
         },
-        onEnd: () => {
-          saveUndoState();
-          syncOrder();
-          renderAll();
-          updateControls();
-        }
+        onEnd: () => { saveUndoState(); syncOrder(); renderAll(); updateControls(); }
       });
     }
 
     function syncOrder() {
       const arr = [];
-      [thumbnails, staging].forEach(c =>
-        Array.from(c.children).forEach(ch => arr.push(pageList[+ch.dataset.idx]))
-      );
+      [thumbnails, staging].forEach(c => Array.from(c.children).forEach(ch => arr.push(pageList[+ch.dataset.idx])));
       pageList = arr;
     }
 
-    // ✅ 匯出 PDF 函式是保留的正確版本：
     async function exportPagesAsPDF(pages, name) {
       try {
         const out = await PDFDocument.create(), origs = [];
         for (const f of fileList) {
-          try {
-            const b = await f.arrayBuffer();
-            origs.push(await PDFDocument.load(b));
-          } catch {
-            origs.push(null);
+          try { const b = await f.arrayBuffer(); origs.push(await PDFDocument.load(b)); } catch { origs.push(null); }
+        }
+        for (const it of pages) {
+          if (it.isBlank) out.addPage([595, 842]);
+          else if (it.fileType === 'pdf' && it.fileIdx >= 0 && origs[it.fileIdx]) {
+            const [copiedPage] = await out.copyPages(origs[it.fileIdx], [it.pageNum - 1]);
+            if (it.rotation) copiedPage.setRotation(degrees(it.rotation));
+            out.addPage(copiedPage);
+          } else if (it.fileType === 'img') {
+            const b64 = it.dataURL.split(',')[1];
+            const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+            const imgObj = it.dataURL.startsWith('data:image/png') ? await out.embedPng(bytes) : await out.embedJpg(bytes);
+            const { width, height } = imgObj.scale(1);
+            const page = out.addPage([width, height]);
+            page.drawImage(imgObj, { x: 0, y: 0, width, height });
           }
         }
-		for (const it of pages) {
-		  if (it.isBlank) {
-			out.addPage([595, 842]);
-		  } else if (it.fileType === 'pdf' && it.fileIdx >= 0 && origs[it.fileIdx]) {
-			const [copiedPage] = await out.copyPages(
-			  origs[it.fileIdx],
-			  [ it.pageNum - 1 ]
-			);
-			if (it.rotation) {
-			  copiedPage.setRotation(degrees(it.rotation));
-			}
-			out.addPage(copiedPage);
-		  } else if (it.fileType === 'img') {
-			const b64 = it.dataURL.split(',')[1];
-			const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-			const imgObj = it.dataURL.startsWith('data:image/png')
-			  ? await out.embedPng(bytes)
-			  : await out.embedJpg(bytes);
-			const { width, height } = imgObj.scale(1);
-			const page = out.addPage([width, height]);
-			page.drawImage(imgObj, { x: 0, y: 0, width, height });
-		  }
-		}
         const bytes = await out.save();
         const blob = new Blob([bytes], { type: 'application/pdf' });
         const url = URL.createObjectURL(blob);
@@ -486,127 +545,111 @@
         a.click();
         URL.revokeObjectURL(url);
         alert('✅ 匯出完成');
-      } catch (e) {
-        console.error(e);
-        alert('❌ 匯出錯誤');
-      }
+      } catch (e) { console.error(e); alert('❌ 匯出錯誤'); }
     }
 
     // 綁定事件
-    fileInput.onchange   = e => addFiles(e.target.files);
-    dropZone.ondragover  = e => { e.preventDefault(); dropZone.classList.add('dragover'); };
-    dropZone.ondragleave = _ => dropZone.classList.remove('dragover');
-    dropZone.ondrop      = e => { e.preventDefault(); dropZone.classList.remove('dragover'); addFiles(e.dataTransfer.files); };
-
-	zoomIn.onclick  = () => {
-	  scalePercent = Math.min(scalePercent + 10, 300);
-	  qualityInput.value = scalePercent;
-	  renderAll();
-	};
-	zoomOut.onclick = () => {
-	  scalePercent = Math.max(scalePercent - 10, 10);
-	  qualityInput.value = scalePercent;
-	  renderAll();
-	};
-	qualityInput.onchange = () => {
-	  let v = parseInt(qualityInput.value);
-	  if (isNaN(v) || v < 10) v = 10;
-	  v = Math.min(v, 300);
-	  scalePercent = v;
-	  qualityInput.value = v;
-	  renderAll();
-	};
-    gapRange.oninput = _ => document.querySelectorAll('.container').forEach(c => c.style.gap = gapRange.value + 'px');
-
-    // 旋轉事件（保留選取狀態）
-    document.getElementById('rotateLeftBtn').onclick = () => {
+    insertBlankBtn.onclick        = insertBlankPage;
+    undoBtn.onclick               = undoLastAction;
+    zoomIn.onclick                = () => { scalePercent = Math.min(scalePercent + 10, 300); qualityInput.value = scalePercent; renderAll(); };
+    zoomOut.onclick               = () => { scalePercent = Math.max(scalePercent - 10, 10); qualityInput.value = scalePercent; renderAll(); };
+    qualityInput.onchange         = () => { let v = parseInt(qualityInput.value); if (isNaN(v) || v < 10) v = 10; v = Math.min(v, 300); scalePercent = v; qualityInput.value = v; renderAll(); };
+    gapRange.oninput              = _ => document.querySelectorAll('.container').forEach(c => c.style.gap = gapRange.value + 'px');
+    rotateLeftBtn.onclick         = () => { saveUndoState(); pageList.forEach(p => { if (p.selected) p.rotation = (p.rotation - 90 + 360) % 360; }); renderAll(); updateControls(); };
+    rotateRightBtn.onclick        = () => { saveUndoState(); pageList.forEach(p => { if (p.selected) p.rotation = (p.rotation + 90) % 360; }); renderAll(); updateControls(); };
+    moveLeftBtn.onclick           = () => {
       saveUndoState();
-      pageList.forEach(p => { if (p.selected) p.rotation = (p.rotation - 90 + 360) % 360; });
-      renderAll();
-      updateControls();
-    };
-    document.getElementById('rotateRightBtn').onclick = () => {
-      saveUndoState();
-      pageList.forEach(p => { if (p.selected) p.rotation = (p.rotation + 90) % 360; });
-      renderAll();
-      updateControls();
-    };
-
-    // 綁定其餘按鈕事件…
-    insertBlankBtn.onclick      = insertBlankPage;
-    undoBtn.onclick             = undoLastAction;
-    moveToStagingBtn.onclick    = () => {
-      saveUndoState();
-      pageList.forEach(p => {
-        if (p.selected && p.area === 'thumbnails') {
-          p.area = 'staging';
-          p.selected = false;
+      // 先分別取 thumbnails 與 staging
+      const arrThumb = pageList.filter(i => i.area === 'thumbnails');
+      const arrStage = pageList.filter(i => i.area === 'staging');
+      // 若有在 thumbnails 中選取，就對 thumbnails 排序
+      if (arrThumb.some(i => i.selected)) {
+        for (let i = 0; i < arrThumb.length; i++) {
+          if (arrThumb[i].selected && i > 0 && !arrThumb[i - 1].selected) {
+            const tmp = arrThumb[i - 1]; arrThumb[i - 1] = arrThumb[i]; arrThumb[i] = tmp;
+          }
         }
-      });
-      renderAll();
-      updateControls();
-    };
-    moveToThumbnailsBtn.onclick = () => {
-      saveUndoState();
-      pageList.forEach(p => {
-        if (p.selected && p.area === 'staging') {
-          p.area = 'thumbnails';
-          p.selected = false;
+      }
+      // 若沒有 thumbnail 的選取，但有 staging 的選取，則對 staging 排序
+      else if (arrStage.some(i => i.selected)) {
+        for (let i = 0; i < arrStage.length; i++) {
+          if (arrStage[i].selected && i > 0 && !arrStage[i - 1].selected) {
+            const tmp = arrStage[i - 1]; arrStage[i - 1] = arrStage[i]; arrStage[i] = tmp;
+          }
         }
-      });
+      }
+      pageList = [].concat(arrThumb, arrStage);
       renderAll();
       updateControls();
     };
-    clearSelectBtn.onclick      = clearSelection;
-    deleteSelectedBtn.onclick   = () => {
+    moveRightBtn.onclick          = () => {
       saveUndoState();
-      pageList = pageList.filter(i => !i.selected);
+      const arrThumb = pageList.filter(i => i.area === 'thumbnails');
+      const arrStage = pageList.filter(i => i.area === 'staging');
+      if (arrThumb.some(i => i.selected)) {
+        for (let i = arrThumb.length - 1; i >= 0; i--) {
+          if (arrThumb[i].selected && i < arrThumb.length - 1 && !arrThumb[i + 1].selected) {
+            const tmp = arrThumb[i + 1]; arrThumb[i + 1] = arrThumb[i]; arrThumb[i] = tmp;
+          }
+        }
+      } else if (arrStage.some(i => i.selected)) {
+        for (let i = arrStage.length - 1; i >= 0; i--) {
+          if (arrStage[i].selected && i < arrStage.length - 1 && !arrStage[i + 1].selected) {
+            const tmp = arrStage[i + 1]; arrStage[i + 1] = arrStage[i]; arrStage[i] = tmp;
+          }
+        }
+      }
+      pageList = [].concat(arrThumb, arrStage);
       renderAll();
       updateControls();
     };
-	exportBtn.onclick = async () => {
-	  const name = outputName.value.trim() || `output_${Date.now()}`;
-	  const pages = pageList.filter(i => i.area === 'thumbnails');
-	  if (!pages.length) return alert('❗ 未選頁面');
-	  await exportPagesAsPDF(pages, name);
-	};
+    moveToStagingBtn.onclick      = () => { saveUndoState(); pageList.forEach(p => { if (p.selected && p.area === 'thumbnails') { p.area = 'staging'; p.selected = false; } }); renderAll(); updateControls(); };
+    moveToThumbnailsBtn.onclick   = () => { saveUndoState(); pageList.forEach(p => { if (p.selected && p.area === 'staging') { p.area = 'thumbnails'; p.selected = false; } }); renderAll(); updateControls(); };
+    deleteSelectedBtn.onclick     = () => { saveUndoState(); pageList = pageList.filter(i => !i.selected); renderAll(); updateControls(); };
+    clearSelectBtn.onclick        = clearSelection;
+    exportBtn.onclick             = async () => { const name = outputName.value.trim() || `output_${Date.now()}`; const pages = pageList.filter(i => i.area === 'thumbnails'); if (!pages.length) return alert('❗ 未選頁面'); await exportPagesAsPDF(pages, name); };
 
+    document.addEventListener('keydown', e => {
+      // 快速鍵：Ctrl+Z / Cmd+Z → 復原
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault(); undoLastAction();
+        return;
+      }
+      // Delete → 刪除選取
+      if (e.key === 'Delete') {
+        e.preventDefault(); saveUndoState(); pageList = pageList.filter(i => !i.selected); renderAll(); updateControls();
+        return;
+      }
+      const anySelectedThumb = pageList.some(i => i.selected && i.area === 'thumbnails');
+      const anySelectedStage = pageList.some(i => i.selected && i.area === 'staging');
+      // ← / →：區內排序
+      if (e.key === 'ArrowLeft') {
+        if (anySelectedThumb || anySelectedStage) {
+          e.preventDefault(); moveLeftBtn.click();
+        }
+        return;
+      }
+      if (e.key === 'ArrowRight') {
+        if (anySelectedThumb || anySelectedStage) {
+          e.preventDefault(); moveRightBtn.click();
+        }
+        return;
+      }
+      // ↑：僅針對 staging 區選取，移回 thumbnails
+      if (e.key === 'ArrowUp' && anySelectedStage) {
+        e.preventDefault(); moveToThumbnailsBtn.click();
+        return;
+      }
+      // ↓：僅針對 thumbnails 區選取，移到 staging
+      if (e.key === 'ArrowDown' && anySelectedThumb) {
+        e.preventDefault(); moveToStagingBtn.click();
+        return;
+      }
+    });
 
     // 初始渲染
     renderAll();
     updateControls();
-
-
-	// 鍵盤上下左右聚焦＆Delete 刪除
-	document.addEventListener('keydown', e => {
-	  const active = document.activeElement;
-	  if (!active.classList.contains('thumb')) return;
-
-	  const parent = active.parentElement;
-	  const sib = Array.from(parent.children);
-	  const i = sib.indexOf(active);
-	  let target = null;
-
-	  if (e.key === 'Delete') {
-		e.preventDefault();
-		saveUndoState();
-		pageList.splice(+active.dataset.idx, 1);
-		renderAll();
-		updateControls();
-		return;
-	  }
-	  if (e.key === 'ArrowLeft'  && i > 0)            target = sib[i - 1];
-	  else if (e.key === 'ArrowRight' && i < sib.length - 1) target = sib[i + 1];
-	  else if (e.key === 'ArrowDown' && parent.id==='thumbnails' && staging.firstChild)
-		target = staging.querySelector('.thumb');
-	  else if (e.key === 'ArrowUp'   && parent.id==='staging'    && thumbnails.firstChild)
-		target = thumbnails.querySelector('.thumb');
-
-	  if (target) {
-		e.preventDefault();
-		target.focus();
-	  }
-	});
   </script>
 </body>
 </html>
