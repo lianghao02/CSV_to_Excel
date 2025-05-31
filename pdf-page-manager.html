@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PDF & 圖片管理與重組工具（含旋轉功能）</title>
 	<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-	<link rel="icon" type="image/png" sizes="32x32" href="https://lianghao02.github.io/photo-print/pdf-page-manager.html/favicon-32x32.png">
-	<link rel="icon" type="image/png" sizes="16x16" href="https://lianghao02.github.io/photo-print/pdf-page-manager.html/favicon-16x16.png">
+	<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+	<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
 	<link rel="manifest" href="site.webmanifest">
 
   <style>
@@ -323,21 +323,16 @@
 		el.className = 'thumb';
 		el.dataset.idx = idx;
 		el.tabIndex = 0;
-		el.setAttribute('draggable', 'true'); // ✅ 明確指定為可拖曳
 
-		if (i.selected) {
-		  el.classList.add('selected'); // ✅ 強制套用選取樣式，給 Sortable 使用
-		}
-		// ===== 在這裡計算尺寸並套用到 el（含旋轉修正）=====
+		if (i.selected) el.classList.add('selected');
+
+		// ===== 在這裡計算尺寸並套用到 el =====
 		const baseW = 120;
-		const baseH = baseW * (842 / 595); // A4 寬高比例
+		const baseH = baseW * (842 / 595);
 		const scale = scalePercent / 100;
-		// 如果是 90 或 270 度，則寬高對調
-		const isRotated = i.rotation % 180 !== 0;
-		const w = isRotated ? baseH : baseW;
-		const h = isRotated ? baseW : baseH;
-		el.style.width  = `${w * scale}px`;
-		el.style.height = `${h * scale}px`;
+		// 動態寬高，inline style 會覆蓋 CSS
+		el.style.width  = `${baseW * scale}px`;
+		el.style.height = `${baseH * scale}px`;
 		// ======================================
 
 		// 圖片
@@ -410,18 +405,9 @@
 
     // 設置 Sortable
     function setupSortable(container, areaKey) {
-      // ✅ 修正多選拖曳失效的關鍵補丁
-		Array.from(container.children).forEach(child => {
-		  const idx = +child.dataset.idx;
-		  if (pageList[idx]?.selected) {
-			child.classList.add('selected');
-		  } else {
-			child.classList.remove('selected');
-		  }
-		});
-	  if (container._sortable) container._sortable.destroy();
+      if (container._sortable) container._sortable.destroy();
       container._sortable = Sortable.create(container, {
-        animation: 150, group: 'pdfpages', multiDrag: true, multiDragKey: null, selectedClass: 'selected',
+        animation: 150, group: 'pdfpages', multiDrag: true, multiDragKey: '', selectedClass: 'selected',
         onAdd: evt => {
           const items = evt.items.length ? evt.items : [evt.item];
           items.forEach(it => {
