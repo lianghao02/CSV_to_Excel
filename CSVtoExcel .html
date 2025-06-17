@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>CSV 轉 Excel 工具 V4.3 正式版</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif;
+            background: linear-gradient(to bottom, #f0f4f8, #e6ecf2);
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 960px;
+            margin: 40px auto;
+            background: #fff;
+            padding: 30px 40px;
+            border-radius: 15px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #004a99;
+            font-weight: 600;
+            font-size: 26px;
+        }
+        .dropzone {
+            border: 3px dashed #0078D7;
+            padding: 50px 20px;
+            text-align: center;
+            color: #555;
+            margin-bottom: 30px;
+            border-radius: 15px;
+            background: #f9fbff;
+            transition: 0.3s;
+        }
+        .dropzone:hover {
+            background: #eef4ff;
+            border-color: #005bbb;
+        }
+        .controls {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .controls button {
+            margin: 10px;
+            font-size: 16px;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            background: #0078D7;
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            transition: 0.3s;
+        }
+        .controls button:hover {
+            background: #005bbb;
+        }
+        .controls input[type="text"] {
+            margin: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            width: 250px;
+        }
+        .controls label {
+            font-size: 16px;
+            margin: 10px;
+        }
+        .filename-list {
+            font-size: 14px;
+            margin: 15px 0;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            background: #fefefe;
+            padding: 10px;
+            border-radius: 10px;
+            text-align: left;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .filename-list div {
+            padding: 4px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .progress {
+            width: 100%;
+            background-color: #ddd;
+            height: 24px;
+            border-radius: 20px;
+            overflow: hidden;
+            margin-top: 20px;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(to right, #0078D7, #66a3ff);
+            width: 0%;
+            transition: width 0.4s ease;
+        }
+        h3 {
+            margin-top: 40px;
+            font-weight: 600;
+            color: #333;
+            border-left: 6px solid #0078D7;
+            padding-left: 10px;
+        }
+        .log-box {
+            background: #fafafa;
+            border: 1px solid #ccc;
+            height: 300px;
+            overflow-y: auto;
+            font-family: Consolas, monospace;
+            padding: 10px;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>CSV 轉 Excel 工具 V4.3 正式版</h1>
+
+    <div class="dropzone" id="dropzone">
+        👉 拖曳 CSV 檔案或資料夾至此，或使用下方按鈕選取 👈
+    </div>
+
+    <div class="controls">
+        <input type="file" id="filePicker" multiple webkitdirectory directory accept=".csv" style="display:none">
+        <button onclick="document.getElementById('filePicker').click()">選擇 CSV 或資料夾</button>
+        <label><input type="checkbox" id="mergeMode" checked> 合併模式</label>
+        <input type="text" id="mergeFilename" placeholder="合併檔名 (預設：合併檔案.xlsx)">
+        <button onclick="startConversion()">開始轉換</button>
+    </div>
+
+    <div class="filename-list" id="fileListBox"></div>
+
+    <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+
+    <h3>日誌輸出</h3>
+    <div class="log-box" id="log"></div>
+</div>
+
+<script>
+// == 核心程式邏輯開始 ==
+let fileMap = new Map();
+const phoneFields = ["住家電話", "行動電話"];
+const periodField = "交易期間";
+
+document.getElementById('filePicker').addEventListener('change', (e) => handleFiles(e.target.files));
+document.getElementById('dropzone').addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+document.getElementById('dropzone').addEventListener('drop', (e) => { e.preventDefault(); handleFiles(e.dataTransfer.files); });
+
+function handleFiles(files) {
+    for (let file of files) {
+        if (file.name.toLowerCase().endsWith('.csv')) fileMap.set(file.name, file);
+    }
+    updateFileList();
+    log("目前已選擇檔案數量：" + fileMap.size);
+}
+
+function updateFileList() {
+    const list = [...fileMap.keys()].map(f => `<div>${f}</div>`).join('');
+    document.getElementById('fileListBox').innerHTML = list || "<i>目前無檔案</i>";
+}
+
+function log(msg) {
+    const logDiv = document.getElementById('log');
+    logDiv.innerText += msg + '\n';
+    logDiv.scrollTop = logDiv.scrollHeight;
+}
+
+function updateProgress(percent) {
+    document.getElementById('progressBar').style.width = percent + '%';
+}
+
+function isNumeric(val) {
+    return /^-?\d+(\.\d+)?$/.test(val.trim());
+}
+
+function detectTextColumns(data, headers) {
+    let textColumns = [];
+    headers.forEach(header => {
+        for (let row of data) {
+            let val = (row[header] ?? '').toString().trim();
+            if (/^\d{13,}$/.test(val)) {
+                textColumns.push(header); break;
+            }
+        }
+    });
+    return textColumns;
+}
+
+function detectNumericColumns(data, headers, textColumns) {
+    let numericColumns = [];
+    headers.forEach(header => {
+        if (textColumns.includes(header)) return;
+        if (phoneFields.includes(header) || header === periodField) return;
+        let numericCount = 0, nonEmpty = 0;
+        for (let row of data) {
+            let val = (row[header] ?? '').toString().trim();
+            if (val === '') continue;
+            nonEmpty++;
+            if (isNumeric(val)) numericCount++;
+        }
+        if (nonEmpty > 0 && (numericCount / nonEmpty) > 0.8) numericColumns.push(header);
+    });
+    return numericColumns;
+}
+
+function convertColumnToNumbers(data, numericColumns) {
+    numericColumns.forEach(col => {
+        data.forEach(row => {
+            let val = (row[col] ?? '').toString().trim();
+            row[col] = isNumeric(val) ? parseFloat(val) : '';
+        });
+    });
+}
+
+function applyCustomFormat(data, headers) {
+    data.forEach(row => {
+        headers.forEach(header => {
+            let val = (row[header] ?? '').toString().trim();
+            if (phoneFields.includes(header) && /^\d+$/.test(val)) {
+                row[header] = val.padStart(10, '0');
+            }
+            if (header === periodField && /^\d+$/.test(val)) {
+                row[header] = val.padStart(6, '0');
+            }
+        });
+    });
+}
+
+async function startConversion() {
+    if (fileMap.size === 0) { alert("請先選擇 CSV 檔案"); return; }
+    const merge = document.getElementById('mergeMode').checked;
+    let mergeFilename = document.getElementById('mergeFilename').value.trim();
+    if (!mergeFilename) mergeFilename = "合併檔案.xlsx";
+    if (!mergeFilename.toLowerCase().endsWith(".xlsx")) mergeFilename += ".xlsx";
+
+    log("開始轉換，共 " + fileMap.size + " 個檔案");
+    let wb = XLSX.utils.book_new();
+    const files = [...fileMap.values()];
+
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        log("處理：" + file.name);
+        try {
+            const text = await file.text();
+            const csv = Papa.parse(text, { header: true });
+            let data = csv.data;
+            const headers = csv.meta.fields || [];
+            if (headers.length === 0) { log("⚠️ 空白或無標題，跳過：" + file.name); continue; }
+
+            const textColumns = detectTextColumns(data, headers);
+            const numericColumns = detectNumericColumns(data, headers, textColumns);
+            log("🔎 文字欄位：" + textColumns.join(", ") + "；數字欄位：" + numericColumns.join(", "));
+
+            convertColumnToNumbers(data, numericColumns);
+            applyCustomFormat(data, headers);
+            const aoaData = [headers];
+            data.forEach(row => {
+                const rowData = headers.map(h => row[h] ?? "");
+                aoaData.push(rowData);
+            });
+
+            const ws = XLSX.utils.aoa_to_sheet(aoaData);
+            if (merge) {
+                const sheetName = file.name.substring(0, 31);
+                XLSX.utils.book_append_sheet(wb, ws, sheetName);
+            } else {
+                const wbSingle = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wbSingle, ws, "Sheet1");
+                const xlsxData = XLSX.write(wbSingle, { bookType: 'xlsx', type: 'array' });
+                saveAs(new Blob([xlsxData], { type: "application/octet-stream" }), file.name.replace(/\.csv$/i, ".xlsx"));
+            }
+        } catch (err) {
+            log("❌ 轉換失敗: " + file.name + "，原因: " + err.message);
+        }
+        updateProgress(Math.round((i + 1) / files.length * 100));
+    }
+    if (merge) {
+        const xlsxData = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        saveAs(new Blob([xlsxData], { type: "application/octet-stream" }), mergeFilename);
+    }
+    log("✅ 全部轉換完成");
+    alert("轉換完成！");
+    fileMap.clear();
+    updateFileList();
+    updateProgress(0);
+}
+</script>
+</body>
+</html>
