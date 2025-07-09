@@ -149,8 +149,10 @@
 <script>
 // == 核心程式邏輯開始 ==
 let fileMap = new Map();
-const phoneFields = ["住家電話", "行動電話"];
+const phoneFields = ["住家電話", "行動電話", ];
 const periodField = "交易期間";
+const textFields = ["交易日期", "交易時間", "帳號"];
+
 
 document.getElementById('filePicker').addEventListener('change', (e) => handleFiles(e.target.files));
 document.getElementById('dropzone').addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
@@ -185,16 +187,27 @@ function isNumeric(val) {
 
 function detectTextColumns(data, headers) {
     let textColumns = [];
+
     headers.forEach(header => {
+        // 強制列入文字格式欄位
+        if (textFields.includes(header)) {
+            textColumns.push(header);
+            return;
+        }
+
+        // 偵測長數字欄位（13 位以上）
         for (let row of data) {
             let val = (row[header] ?? '').toString().trim();
             if (/^\d{13,}$/.test(val)) {
-                textColumns.push(header); break;
+                textColumns.push(header);
+                break;
             }
         }
     });
+
     return textColumns;
 }
+
 
 function detectNumericColumns(data, headers, textColumns) {
     let numericColumns = [];
@@ -270,6 +283,17 @@ async function startConversion() {
             });
 
             const ws = XLSX.utils.aoa_to_sheet(aoaData);
+            // 強制指定文字欄位格式（@ = 文字格式，避免科學記號）
+            textColumns.forEach(header => {
+                const colIndex = headers.indexOf(header);
+                if (colIndex === -1) return;
+                for (let r = 1; r < aoaData.length; r++) {
+                    const cellRef = XLSX.utils.encode_cell({ c: colIndex, r });
+                    if (ws[cellRef]) {
+                        ws[cellRef].z = '@';
+                    }
+                }
+            });
             if (merge) {
                 const sheetName = file.name.substring(0, 31);
                 XLSX.utils.book_append_sheet(wb, ws, sheetName);
