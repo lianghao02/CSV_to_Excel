@@ -74,6 +74,88 @@ V4.3 (正式版)
 
 改善欄位格式偵測，避免帳號/電話變成科學記號
 
+_______________________________________________________________________________________________________________________________________________
+CSV 轉 Excel 工具 v4.4.1 更新內容（Changelog）
+
+發行日期：2025-09-18
+重點：修正 CSV 解析非同步造成的錯誤、日誌一行一訊息、拖曳區與按鈕間距微調，維持 4.4 的自動欄寬與去重策略。
+
+🛠 修正（Fixes）
+
+Papa Parse 同步解析：由於 4.4 對字串搭配 worker:true 會走非同步回呼，導致在取用 csv.data 當下為 undefined。
+
+改為同步：Papa.parse(text, { header: true, skipEmptyLines: 'greedy' })。
+
+加入防呆：檢查 csv && csv.meta && Array.isArray(csv.data)，否則提示「CSV 解析失敗或格式不正確」。
+
+BOM 去除：讀檔後若遇到 U+FEFF 先剔除，避免標題偵測失敗。
+
+範例差異
+
+- const csv = Papa.parse(text, { header: true, skipEmptyLines: 'greedy', worker: true });
+- let data = csv.data; // 非同步時此處可能為 undefined
++ const csv = Papa.parse(text, { header: true, skipEmptyLines: 'greedy' });
++ if (!csv || !csv.meta) throw new Error('CSV 解析失敗或格式不正確');
++ const data = Array.isArray(csv.data) ? csv.data : [];
+
+✨ 改善（Improvements）
+
+日誌一行一訊息：log() 以 <div> 為單位新增，確保每則訊息獨立、乾淨整齊。
+
+進度條反饋更平滑：每檔完成即更新 %。
+
+自動欄寬：取前 50 列 + 標題估算；中文全形視為寬度 2；欄寬限制 8–50 wch。
+
+AutoFilter：輸出工作表自動套用篩選列，提升檢視效率。
+
+🔁 行為變更（Behavior Changes）
+
+重複檔名策略（推薦）：以檔名為鍵，遇重複自動跳過並顯示 Toast + 日誌提示（避免誤匯與 sheet 命名衝突）。
+
+工作表名稱唯一化：基礎名（截 31 字 + 合法化）若重複，自動加 _2/_3... 後綴。
+
+🧩 UI/UX
+
+拖曳區與按鈕間距調整：更清楚的視覺分群與節奏。
+
+原生風格 + 深色模式（跟隨系統）：按鈕加簡潔 SVG 圖示、Toast 完成提示、清除清單按鈕。
+
+拖曳資料夾：支援 webkitGetAsEntry 遞迴；不支援時回退為多檔選擇。
+
+🔢 欄位處理（延續 4.4）
+
+避免科學記號：指定欄（如「交易日期／時間／帳號／電話」）與**長數字欄（≥13 位）**強制為文字（cell.t='s'）。
+
+補零規則：電話欄純數字 → 左補零至 10 碼；「交易期間」純數字 → 左補零至 6 碼。
+
+🧪 相容性與限制
+
+相容：合併模式與單檔輸出皆可；多資料夾拖曳（Chrome）／一般檔案選取（跨瀏覽器）。
+
+限制：非 UTF-8（如 BIG5/CP950）目前不自動轉碼；需要時可於後續小版加入「多編碼嘗試解碼」。
+
+🔧 升級指引
+
+以 4.4.1 單檔覆蓋原 4.4。
+
+無需更動設定；若要調整偵測與樣式，建議改這些常數：
+
+FORCE_TEXT_FIELDS、LONG_NUMBER_DIGITS、SAMPLE_ROWS_FOR_WIDTH。
+
+✅ 範例日誌（一行一訊息）
+🚀 開始轉換，共 5 個檔案
+處理：20250916-191-7120527Info.csv
+❌ 轉換失敗：20250916-191-7120527Info.csv，原因：CSV 解析失敗或格式不正確
+處理：20250916-191-7120527Intranet.csv
+...
+✅ 全部轉換完成
+
+📌 版本資訊
+
+頁面標題與主標題已更新為 V4.4.1。
+
+
+
 📜 授權
 
 MIT License – 可自由使用、修改、散布。
