@@ -1,6 +1,0 @@
-This favicon was generated using the following font:
-
-- Font Title: Mona Sans
-- Font Author: undefined
-- Font Source: https://fonts.gstatic.com/s/monasans/v3/o-0kIpQmx24alC5A4PNr4C5OaxRsfNNlKbCePevHtVtX57DGjDU1QJ4Z6VfYyWtY1rI.ttf
-- Font License: undefined)
