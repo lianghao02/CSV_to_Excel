@@ -12,12 +12,15 @@ const longNumRe = new RegExp("^\\d{" + LONG_NUMBER_DIGITS + ",}$");
 const FORCE_TEXT_FIELDS = ["交易日期", "交易時間", "帳號", "住家電話", "行動電話"];
 const PAD_PHONE_FIELDS   = ["住家電話", "行動電話"];
 const PAD_PERIOD_FIELD   = "交易期間";
-// 金額欄位（移除 + 號、小數）
+
+// 金額欄位（需求重點）
 const MONEY_FIELDS = ["支出金額", "存入金額", "餘額"];
+const EXCEL_MONEY_FORMAT = "#,##0"; // Excel 顯示為 23,000（仍為數字）
 
 // ===== 狀態 / 元件 =====
-const fileMap   = new Map();
+const fileMap   = new Map(); // key: 檔案路徑（webkitRelativePath 優先） value: File
 const duplicates= new Set();
+
 const logBox    = document.getElementById('log');
 const fileList  = document.getElementById('fileList');
 const bar       = document.getElementById('bar');
@@ -30,11 +33,18 @@ const dropzone  = document.getElementById('dropzone');
 const mergeMode   = document.getElementById('mergeMode');
 const mergeFilename = document.getElementById('mergeFilename');
 
+const sumOutEl = document.getElementById('sumOut');
+const sumInEl  = document.getElementById('sumIn');
+const sumBalEl = document.getElementById('sumBal');
+
+// 總計（跨所有檔案加總）
+const totals = { "支出金額": 0, "存入金額": 0, "餘額": 0 };
+
 // ===== 綁定 =====
 btnPick.addEventListener('click', () => picker.click());
 picker.addEventListener('change', (e) => handleFiles(e.target.files));
 btnStart.addEventListener('click', startConversion);
-btnClear.addEventListener('click', () => { fileMap.clear(); duplicates.clear(); renderFileList(); log('🧹 已清除清單'); });
+btnClear.addEventListener('click', () => { fileMap.clear(); duplicates.clear(); renderFileList(); resetTotals(); log('🧹 已清除清單與統計'); });
 
 ['dragenter','dragover'].forEach(type => dropzone.addEventListener(type, e => {
   e.preventDefault();
@@ -79,6 +89,18 @@ function renderFileList() {
       <div class="badge">${(f.size/1024).toFixed(1)} KB</div>
     </div>`).join('');
   fileList.innerHTML = rows;
+}
+function resetTotals() {
+  totals["支出金額"] = 0;
+  totals["存入金額"] = 0;
+  totals["餘額"]    = 0;
+  renderTotals();
+}
+function renderTotals() {
+  // 顯示時用本地千分位格式
+  sumOutEl.textContent = totals["支出金額"].toLocaleString();
+  sumInEl.textContent  = totals["存入金額"].toLocaleString();
+  sumBalEl.textContent = totals["餘額"].toLocaleString();
 }
 
 // ===== 檔案/資料夾 載入 =====
@@ -139,6 +161,34 @@ function isNumeric(v) {
   v = String(v).trim();
   return /^-?\d+(?:\.\d+)?$/.test(v);
 }
+// 移除 + 號、逗號、空白，轉為整數數值；無法解析回傳 null
+function parseMoneyToInt(raw) {
+  if (raw == null) return null;
+  const s = String(raw).replace(/[+,]/g, '').trim();
+  if (s === '' || isNaN(Number(s))) return null;
+  // 四捨五入去小數
+  return Math.round(parseFloat(s));
+}
+function normalizeMoneyFields(data, headers) {
+  const present = MONEY_FIELDS.filter(h => headers.includes(h));
+  if (present.length === 0) return present;
+
+  for (let i=0; i<data.length; i++) {
+    const row = data[i] || {};
+    for (const h of present) {
+      const n = parseMoneyToInt(row[h]);
+      if (n !== null) {
+        row[h] = n; // 直接用數字（Excel 可計算）
+      } else {
+        // 空字串或非數字：保持空字串，避免 NaN
+        row[h] = (row[h] == null || String(row[h]).trim()==='') ? '' : row[h];
+      }
+    }
+    data[i] = row;
+  }
+  return present;
+}
+
 function detectTextColumns(data, headers) {
   const set = new Set(FORCE_TEXT_FIELDS);
   for (let h of headers) {
@@ -155,6 +205,10 @@ function detectNumericColumns(data, headers, textCols) {
   const num = [];
   for (let h of headers) {
     if (textSet.has(h)) continue;
+    if (MONEY_FIELDS.includes(h)) { // 金額欄位一定視為數字
+      num.push(h);
+      continue;
+    }
     let numericCount = 0, nonEmpty = 0;
     for (let i=0; i<Math.min(data.length, 2000); i++) {
       const raw = ((data[i] && data[i][h]) ?? '').toString().trim();
@@ -172,10 +226,6 @@ function applyCustomFormat(data, headers) {
       let v = ((row && row[h]) ?? '').toString().trim();
       if (PAD_PHONE_FIELDS.includes(h) && /^\d+$/.test(v)) row[h] = v.padStart(10, '0');
       if (h === PAD_PERIOD_FIELD && /^\d+$/.test(v)) row[h] = v.padStart(6, '0');
-      if (MONEY_FIELDS.includes(h) && v) {
-        v = v.replace(/^\+/, ""); // 移除+
-        if (isNumeric(v)) row[h] = String(Math.trunc(parseFloat(v))); // 去小數
-      }
     }
   }
 }
@@ -184,8 +234,9 @@ function convertNumeric(data, numericCols) {
   for (let r=0; r<data.length; r++) {
     const row = data[r];
     set.forEach(h => {
+      if (MONEY_FIELDS.includes(h)) return; // 金額已於 normalizeMoneyFields 處理
       const t = ((row && row[h]) ?? '').toString().trim();
-      row[h] = isNumeric(t) ? parseFloat(t) : '';
+      row[h] = isNumeric(t) ? parseFloat(t) : (t==='' ? '' : t);
     });
   }
 }
@@ -223,6 +274,30 @@ function forceTextCells(ws, headers, textCols, rows) {
     }
   }
 }
+// 金額欄位套用 Excel 格式 #,##0（確保顯示千分位、且仍為數字）
+function applyMoneyFormats(ws, headers, aoaRows) {
+  for (let c=0; c<headers.length; c++) {
+    const h = headers[c];
+    if (!MONEY_FIELDS.includes(h)) continue;
+    for (let r=1; r<aoaRows; r++) {
+      const ref = XLSX.utils.encode_cell({ c, r });
+      const cell = ws[ref];
+      if (!cell) continue;
+      // 若是數字，就直接套用格式；若是字串但可轉數字，也轉成數字
+      if (cell.t === 'n') {
+        cell.z = EXCEL_MONEY_FORMAT;
+      } else if (cell.t === 's' || cell.t === 'str') {
+        const n = parseMoneyToInt(cell.v);
+        if (n !== null) {
+          cell.v = n;
+          cell.t = 'n';
+          cell.z = EXCEL_MONEY_FORMAT;
+        }
+      }
+    }
+  }
+}
+
 function uniqueSheetName(wb, base) {
   let name = String(base || 'Sheet').replace(/[\\/?*[\]:]/g, '_').slice(0, MAX_SHEETNAME_LEN) || 'Sheet';
   if (!wb.SheetNames.includes(name)) return name;
@@ -241,6 +316,9 @@ async function startConversion() {
   let outName = (mergeFilename.value || '').trim() || '合併檔案.xlsx';
   if (!/\.xlsx$/i.test(outName)) outName += '.xlsx';
 
+  // 重置統計
+  resetTotals();
+
   log(`🚀 開始轉換，共 ${fileMap.size} 個檔案`);
   setProgress(1);
 
@@ -252,22 +330,45 @@ async function startConversion() {
     try {
       log(`處理：${f.name}`);
       let text = await f.text();
+      // 去除 BOM
       if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+
+      // 同步解析
       const csv = Papa.parse(text, { header: true, skipEmptyLines: 'greedy' });
       if (!csv || !csv.meta) throw new Error('CSV 解析失敗或格式不正確');
+
       let data = Array.isArray(csv.data) ? csv.data : [];
       const headers = Array.isArray(csv.meta.fields) ? csv.meta.fields : [];
       if (!headers.length) { log(`⚠️ 無標題或空檔，已跳過：${f.name}`); continue; }
+
+      // 先將金額欄位轉成數字（去 +、去小數 → 整數），並累計統計
+      const moneyPresent = normalizeMoneyFields(data, headers);
+      // 累計 totals
+      for (const row of data) {
+        for (const h of moneyPresent) {
+          const n = typeof row[h] === 'number' ? row[h] : parseMoneyToInt(row[h]);
+          if (typeof n === 'number' && !Number.isNaN(n)) totals[h] += n;
+        }
+      }
+      renderTotals();
+
+      // 其他欄位處理
       const textCols = detectTextColumns(data, headers);
       const numCols  = detectNumericColumns(data, headers, textCols);
       applyCustomFormat(data, headers);
       convertNumeric(data, numCols);
+
+      // AOA 組裝
       const aoa = [headers];
       for (let r=0; r<data.length; r++) aoa.push(headers.map(h => data[r][h] ?? ''));
+
+      // 產生 Sheet
       const ws = XLSX.utils.aoa_to_sheet(aoa);
       ws['!cols'] = autoColumnWidths(aoa, SAMPLE_ROWS_FOR_WIDTH);
       forceTextCells(ws, headers, textCols, aoa.length);
+      applyMoneyFormats(ws, headers, aoa.length); // 套用金額格式（#,##0）
       ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s:{c:0,r:0}, e:{c:headers.length-1, r:Math.max(0, aoa.length-1)} }) };
+
       if (merge) {
         const base = f.name.replace(/\.csv$/i, '').slice(0, MAX_SHEETNAME_LEN);
         const name = uniqueSheetName(wb, base);
@@ -284,7 +385,7 @@ async function startConversion() {
     setProgress(Math.round(((i + 1) / files.length) * 100));
   }
 
-  if (merge) {
+  if (merge && fileMap.size > 0) {
     const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     saveAs(new Blob([buf], { type: 'application/octet-stream' }), outName);
   }

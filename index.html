@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>CSV 轉 Excel 工具 V4.4.3</title>
-  <!-- Libs -->
+  <!-- Libs（保留穩定版本） -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
@@ -31,37 +31,51 @@
     * { box-sizing: border-box; }
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Microsoft JhengHei', sans-serif; margin:0; color:var(--txt); background: linear-gradient(to bottom, var(--bg1), var(--bg2)); }
     .container { width: min(1000px, 92vw); margin: clamp(16px, 4vw, 48px) auto; background: #fff; padding: clamp(16px, 3.2vw, 36px); border-radius: var(--radius); box-shadow: 0 12px 28px rgba(0,0,0,.12); }
-    h1 { margin: 0 0 16px; font-weight: 700; letter-spacing: .3px; text-align:center; font-size: clamp(20px, 3.2vw, 28px); color: var(--brand); }
-    .sub { text-align:center; color:var(--muted); margin-bottom: 18px; font-size: clamp(12px, 2.2vw, 14px); }
+    h1 { margin: 0 0 8px; font-weight: 700; letter-spacing: .3px; text-align:center; font-size: clamp(20px, 3.2vw, 28px); color: var(--brand); }
+    .sub { text-align:center; color:var(--muted); margin-bottom: 12px; font-size: clamp(12px, 2.2vw, 14px); }
+
+    .stats { display:flex; justify-content:center; flex-wrap:wrap; gap:8px; margin-bottom: 16px; }
+    .pill { font-size:12px; border:1px solid #e5e7eb; padding:6px 10px; border-radius:999px; background:#f8fafc; }
+    .pill b { color:#0f172a; }
+
     .dropzone { border: 2.5px dashed #3b82f6; padding: clamp(18px, 4vw, 28px); border-radius: 14px; text-align:center; color:var(--muted); background: #f8fbff; transition: .2s ease; margin-bottom: 18px; }
     .dropzone:hover { background:#eef6ff; }
     .dropzone.active { background:#e0efff; border-color:#2563eb; }
+
     .toolbar { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; align-items:center; margin: 10px 0 16px; }
+
     .btn { display:inline-flex; align-items:center; gap:8px; border:0; padding: 10px 14px; border-radius: 12px; background: var(--brand); color:#fff; cursor:pointer; font-weight:600; box-shadow: 0 6px 14px rgba(10,102,194,.25); transition: transform .08s ease, box-shadow .2s ease, background .2s ease; }
     .btn:hover { background: var(--brand-2); box-shadow: 0 10px 20px rgba(10,102,194,.35); }
     .btn:active { transform: translateY(1px); }
     .btn.secondary { background:#e5e7eb; color:#111827; box-shadow:none; }
     .btn.secondary:hover { background:#d1d5db; }
+
     .switch { display:inline-flex; align-items:center; gap:8px; user-select:none; }
     .switch input { appearance:none; width:44px; height:24px; background:#d1d5db; border-radius:999px; position:relative; outline: none; cursor:pointer; transition: background .2s ease; }
     .switch input:checked { background:#60a5fa; }
     .switch input::after { content:""; position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:999px; background:#fff; transition: transform .2s ease; }
     .switch input:checked::after { transform: translateX(20px); }
     .switch span { color:var(--muted); font-weight:600; }
+
     .filename-list { margin-top: 12px; font-size: 13px; max-height: 220px; overflow:auto; border:1px solid #e5e7eb; background:#fff; border-radius:12px; padding:10px; }
     .file-row { display:flex; justify-content:space-between; align-items:center; gap: 8px; padding: 6px 4px; border-bottom:1px dashed #eee; }
     .file-row:last-child { border-bottom:0; }
     .file-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; background:#eff6ff; color:#1d4ed8; font-weight:700; }
+
     .progress { width:100%; height: 14px; background:#e5e7eb; border-radius:999px; overflow:hidden; margin-top: 14px; }
     .progress-bar { height:100%; width:0%; background: linear-gradient(90deg, #3b82f6, #60a5fa, #93c5fd); transition: width .35s ease; }
+
     .log { margin-top: 14px; }
     .log h3 { margin: 18px 0 8px; font-size: 14px; color:#334155; }
     .log-box { height: 260px; overflow:auto; border:1px solid #e5e7eb; border-radius: 12px; background:#fff; padding:10px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; font-size:12px; }
+
     .input-inline { display:flex; justify-content:center; gap:10px; flex-wrap:wrap; margin-top: 8px; }
     .text { border:1px solid #e5e7eb; padding:10px 12px; border-radius: 12px; min-width:260px; max-width: min(520px, 80vw); }
+
     .toast { position: fixed; inset: auto 12px 12px auto; background:#111827; color:#fff; padding:10px 14px; border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.25); opacity:0; transform: translateY(8px); pointer-events:none; transition: .25s ease; z-index: 50; }
     .toast.show { opacity:1; transform: translateY(0); }
+
     .muted { color: var(--muted); }
     .hint { font-size:12px; color: var(--muted); text-align:center; margin-top:6px; }
   </style>
@@ -69,7 +83,14 @@
 <body>
   <div class="container">
     <h1>CSV 轉 Excel 工具 V4.4.3</h1>
-    <div class="sub">拖曳 <b>CSV 檔或資料夾</b> 進來，或用下方按鈕選取。自動欄寬・避免科學記號・金額自動格式化。</div>
+    <div class="sub">金額欄位自動轉數字＋千分位（#,##0），可統計；拖曳 <b>CSV 檔或資料夾</b> 進來，或用下方按鈕選取。</div>
+
+    <!-- 統計顯示 -->
+    <div class="stats" id="totals">
+      <div class="pill">支出金額合計：<b id="sumOut">0</b></div>
+      <div class="pill">存入金額合計：<b id="sumIn">0</b></div>
+      <div class="pill">餘額合計：<b id="sumBal">0</b></div>
+    </div>
 
     <div id="dropzone" class="dropzone" tabindex="0" aria-label="拖曳區">
       <div style="display:flex; flex-direction:column; align-items:center; gap:8px;">
@@ -90,9 +111,11 @@
       <input id="mergeFilename" class="text" type="text" placeholder="合併檔名（預設：合併檔案.xlsx）" />
     </div>
 
-    <div id="fileList" class="filename-list" aria-live="polite"></div>
-    <div class="progress"><div id="bar" class="progress-bar"></div></div>
-    <div class="hint">提示：金額欄位自動去掉「+號」與小數點</div>
+    <div id="fileList" class="filename-list" aria-live="polite" aria-label="已選檔案清單"></div>
+
+    <div class="progress" aria-hidden="true"><div id="bar" class="progress-bar"></div></div>
+
+    <div class="hint">提示：不同資料夾同名檔案不會互相覆蓋，會被視為不同來源處理。</div>
 
     <div class="log">
       <h3>日誌輸出</h3>
