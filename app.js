@@ -1,5 +1,6 @@
 // =====================
-// CSV to Excel V4.4.3
+// CSV to Excel V4.4.4
+// - 新增：自動偵測並解碼 CSV 編碼（UTF-8 / Big5 / GB18030）避免亂碼
 // - 金額欄位（支出金額/存入金額/餘額）去除 + 與小數，截去小數，Excel 以 #,##0 顯示
 // - 可統計上述三欄合計
 // - 保留 4.4.2 的修正（drop 判斷、路徑去重、log 上限、文字欄 z='@'）
@@ -163,6 +164,54 @@ function addFile(file) {
   fileMap.set(key, file);
 }
 
+// ===== 編碼偵測與解碼（關鍵修正） =====
+function hasNonASCII(u8) {
+  for (let i = 0; i < u8.length; i++) { if (u8[i] > 0x7F) return true; }
+  return false;
+}
+function scoreTextForChinese(t) {
+  // 計算 CJK 區段比例與 � 次數（越多 � 分數越差）
+  let cjk = 0, total = 0, repl = 0;
+  for (let i=0;i<t.length;i++) {
+    const ch = t.charCodeAt(i);
+    total++;
+    if (ch === 0xFFFD) repl++;
+    // 中日韓統一表意文字 + 常用全形標點
+    if ((ch >= 0x4E00 && ch <= 0x9FFF) || "，、。；：「」『』（）《》【】！？」＂％＄＃＠＋－＝＼｜".includes(t[i])) {
+      cjk++;
+    }
+  }
+  const cjkRatio = total ? (cjk/total) : 0;
+  return { cjkRatio, repl };
+}
+function stripBOM(s) {
+  if (!s) return s;
+  return s.replace(/^\uFEFF/, '');
+}
+async function decodeFile(file) {
+  // 以 ArrayBuffer 取得原始位元組，避免瀏覽器以 UTF-8 直接解讀造成亂碼
+  const buf = await file.arrayBuffer();
+  const u8 = new Uint8Array(buf);
+  // 優先嘗試 UTF-8，其次 Big5，再來 GB18030（台灣 CSV 常見）
+  const candidates = ['utf-8', 'big5', 'gb18030'];
+  // 如果完全沒有非 ASCII，直接當 UTF-8
+  if (!hasNonASCII(u8)) {
+    return stripBOM(new TextDecoder('utf-8').decode(u8));
+  }
+  let best = { enc: 'utf-8', text: '', score: -Infinity };
+  for (const enc of candidates) {
+    try {
+      const td = new TextDecoder(enc, { fatal: false });
+      const text = stripBOM(td.decode(u8));
+      const { cjkRatio, repl } = scoreTextForChinese(text);
+      // 打分：中文比例越高越好，� 越少越好
+      const score = cjkRatio * 1000 - repl * 50;
+      if (score > best.score) best = { enc, text, score };
+    } catch (_) { /* 某些環境可能不支援該編碼，忽略 */ }
+  }
+  return best.text || stripBOM(new TextDecoder().decode(u8));
+}
+
 // ===== 資料偵測 / 格式 =====
 function isNumeric(v) {
   v = String(v).trim();
@@ -175,10 +224,9 @@ function sanitizeAmountToInt(v) {
   if (!s) return null;
   s = s.replace(/,/g, '');     // 去千分位
   s = s.replace(/^\+/, '');    // 去掉正號
-  // 保留負號（若有）
   const n = Number.parseFloat(s);
   if (Number.isNaN(n)) return null;
-  // 去小數：截斷
+  // 去小數：截斷（負數用 Math.ceil 避免 -1.9 -> -1.0 的四捨五入）
   return n < 0 ? Math.ceil(n) : Math.trunc(n);
 }
 function detectTextColumns(data, headers) {
@@ -245,8 +293,7 @@ function convertNumeric(data, numericCols) {
   for (let r=0; r<data.length; r++) {
     const row = data[r];
     set.forEach(h => {
-      // 金額欄已先處理，不需再 parse
-      if (AMOUNT_FIELDS.includes(h)) return;
+      if (AMOUNT_FIELDS.includes(h)) return; // 金額欄已先處理
       const t = ((row && row[h]) ?? '').toString().trim();
       row[h] = isNumeric(t) ? parseFloat(t) : '';
     });
@@ -295,10 +342,8 @@ function formatAmountCells(ws, headers, rows) {
       const ref = XLSX.utils.encode_cell({ c, r });
       const cell = ws[ref];
       if (!cell) continue;
-      // cell 為數值（n），顯示成 #,##0
       cell.t = 'n';
       cell.z = '#,##0';
-      // 若該格是空字串，移除型別以避免 0
       if (cell.v === '' || cell.v == null) {
         delete cell.t; delete cell.z;
       }
@@ -340,7 +385,12 @@ async function startConversion() {
     const f = files[i];
     try {
       log(`處理：${f.name}`);
-      let text = await f.text();
+
+      // ⤵️ 關鍵修正：用自動偵測的方式將 CSV bytes 解成正確文字
+      let text = await decodeFile(f);
+
+      // 清除隱藏控制字元（有些系統產生的 CSV 會混入 \u0000 等）
+      text = text.replace(/\u0000/g, '');
       if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
 
       const csv = Papa.parse(text, { header: true, skipEmptyLines: 'greedy' });
