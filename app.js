@@ -2,6 +2,10 @@
 // CSV to Excel V4.5.1
 // - 依「規格化標題」分群；先規格化再決定是否合併到同分頁
 // - 規格化：空白/全半形/標點/括號說明/常見錯別字/近似字(≤2) 自動修正
+// - 特別規範：
+//   * 「戶名」≠「帳號」；若同時出現帳號/戶名字樣，歸到「帳號」避免混淆
+//   * 「承租人」與「被害人」不互相合併（被害人/受害人仍合併為「被害人」）
+//   * 「資料提供日帳戶餘額」與「資料提供日帳戶結餘」合併為同一欄（用「資料提供日帳戶結餘」）
 // - 重複欄位去重（簽名前）；同分頁不同來源以空白列分隔
 // - 輸出「000_HeaderMap」對照表
 // - 延續 4.4.x：自動偵測 CSV 編碼（UTF-8/Big5/GB18030）、金額整形(#,##0)、統計、路徑去重、文字欄 z='@'
@@ -25,7 +29,10 @@ const AMOUNT_FIELDS = ["支出金額", "存入金額", "餘額"];
 // 先做通用清理（空白/全半形/標點/括號）→ 再按此表歸一化 → 再做近似字補捉
 const HEADER_ALIASES = {
   "身分證統一編號": ["身份證統一編號","身分證統編號","身份證統編號","身分證號","身份證號","身分證","身份證"],
-  "帳號": ["帳戶","帳戶號碼","帳戶號","帳號/戶名","帳號 "],
+  // === 關鍵：明確分離「戶名」與「帳號」 ===
+  "帳號": ["帳戶","帳戶號碼","帳戶號","帳號 "], // 移除「帳號/戶名」避免混淆
+  "戶名": ["戶名(開戶人)","開戶人名稱","開戶人","客戶名稱","帳戶名稱","戶名 "], // 專屬戶名，不歸到帳號
+  // ====================================
   "交易日期": ["交易日","交易 日","交易日期 ","交易日期　","交易日期(西元)"],
   "交易時間": ["時間","時 間","交易 時間"],
   "交易行": ["交易銀行","金融機構","金融機構名稱","交易行別","交易行(或所屬分行代號)","所屬分行代號"],
@@ -38,13 +45,15 @@ const HEADER_ALIASES = {
   "櫃員代號": ["櫃員","櫃 員代號"],
   "轉出入行庫代碼及帳號": ["轉出入行庫代碼&帳號","轉出入行庫代碼與帳號","轉出入行庫代碼","往來行庫代碼及帳號"],
   "備註": ["備 註","附註","備考","備  註"],
-  "被害人": ["受害人","被害 人","被 害 人"],
+  "被害人": ["受害人","被害 人","被 害 人"], // 不要與「承租人」合併
+  "承租人": ["承 租 人","承租 人"],          // 明確獨立
   "住家電話": ["電話(住家)","住家 電話","家用電話"],
   "行動電話": ["手機","手機號碼","行動 電話"],
   "戶籍地址": ["戶籍 地址"],
   "通訊地址": ["通訊 地址"],
   "資料提供日期": ["資料提供日","資料提供 日","資料提供日期 "],
-  "資料提供日帳戶結餘": ["資料提供日結餘","資料提供日 帳戶結餘","資料提供日期帳戶結餘"],
+  // 統一「資料提供日帳戶結餘」
+  "資料提供日帳戶結餘": ["資料提供日結餘","資料提供日 帳戶結餘","資料提供日期帳戶結餘","資料提供日帳戶餘額"],
   "開戶行總分支機構代碼": ["開戶行總、分支機構代碼","開戶行總分支機構 代碼","開戶行總分支機構代碼 "],
   "交易期間": ["期間","交易 期間"]
 };
@@ -266,8 +275,16 @@ function basicCleanHeader(raw){
   s = s.replace(/\s+/g,'').replace(/[\u0000-\u001F\u007F]/g,'');
   return s;
 }
+
 const CANON_SET = new Set(Object.keys(HEADER_ALIASES));
-const ALIAS_LUT = (()=>{ const m=new Map(); for (const k of Object.keys(HEADER_ALIASES)){ m.set(basicCleanHeader(k), k); HEADER_ALIASES[k].forEach(a=> m.set(basicCleanHeader(a), k)); } return m; })();
+const ALIAS_LUT = (()=>{ 
+  const m=new Map(); 
+  for (const k of Object.keys(HEADER_ALIASES)){
+    m.set(basicCleanHeader(k), k); 
+    HEADER_ALIASES[k].forEach(a=> m.set(basicCleanHeader(a), k)); 
+  } 
+  return m; 
+})();
 
 function levenshtein(a,b){
   const m=a.length,n=b.length; if (m===0) return n; if (n===0) return m;
@@ -285,11 +302,19 @@ function levenshtein(a,b){
 }
 
 function chooseClosestCanonical(cleanKey){
+  // 特例優先：若同時包含「帳號」與「戶名」字樣，強制歸到「帳號」
+  if (cleanKey.includes("帳號") && cleanKey.includes("戶名")) return "帳號";
+
   // 若能直接映到別名表，直接回傳
   if (ALIAS_LUT.has(cleanKey)) return ALIAS_LUT.get(cleanKey);
+
   // 近似匹配（編輯距離 ≤ 2）
   let bestKey=null, bestDist=3;
   for (const canonical of CANON_SET.values()){
+    // 保護規則：承租人/被害人互不吸附
+    if ((cleanKey.includes("承租人") && canonical==="被害人") ||
+        (cleanKey.includes("被害人") && canonical==="承租人")) continue;
+
     const d = levenshtein(cleanKey, basicCleanHeader(canonical));
     if (d<bestDist){ bestDist=d; bestKey=canonical; if (bestDist===0) break; }
   }
@@ -380,27 +405,32 @@ async function parseCsvFile(file){
   // 規格化標題（含去重）
   const headersCanon = canonicalizeHeaders(headersRaw);
 
-  // 重建資料列：以「規格化後的欄名」為鍵
-  const headerMapPairs = []; // for HeaderMap sheet
+  // 建立「原始→規格化」對照，只記錄第一個命中的欄
+  const headerMapPairs = [];
   const src2dst = {};
-  // 建立原始→規格化的對照（只記錄第一個命中的欄）
   const seenCanon = new Set();
+
   for (let i=0;i<headersRaw.length;i++){
     const raw = headersRaw[i];
-    const canon = normalizeHeaderName(raw);
+    let canon = normalizeHeaderName(raw);
+
+    // 額外保護：同時包含帳號/戶名 → 強制帳號（避免姓名被錯投到帳號）
+    const cleaned = basicCleanHeader(raw);
+    if (cleaned.includes("帳號") && cleaned.includes("戶名")) canon = "帳號";
+
     if (!seenCanon.has(canon)){ src2dst[raw]=canon; seenCanon.add(canon); headerMapPairs.push([raw, canon]); }
   }
 
+  // 重建資料列：以「規格化後的欄名」為鍵
   const rows = data.map(row => {
-    const o={};
-    // 先填入規格化欄位
-    headersCanon.forEach(h => { o[h]=''; });
-    // 對應來源每欄到規格化鍵（忽略重複鍵的後續欄）
+    const o={}; headersCanon.forEach(h => { o[h]=''; });
     for (const rawKey of Object.keys(row)){
-      const dstKey = src2dst[rawKey] ?? normalizeHeaderName(rawKey);
+      const cleaned = basicCleanHeader(rawKey);
+      let dstKey = src2dst[rawKey] ?? normalizeHeaderName(rawKey);
+      if (cleaned.includes("帳號") && cleaned.includes("戶名")) dstKey = "帳號"; // 再次保護
       if (dstKey in o && o[dstKey]==='') o[dstKey]=row[rawKey];
     }
-    // 金額整形
+    // 金額整形 + 統計
     const {expense,income,balance} = normalizeAmountsRow(o);
     if (typeof expense === 'number') totals.expense += expense;
     if (typeof income  === 'number') totals.income  += income;
@@ -450,7 +480,6 @@ async function startConversion(){
       ws['!autofilter']={ ref: XLSX.utils.encode_range({ s:{c:0,r:0}, e:{c:headerDisplay.length-1, r:Math.max(0,aoa.length-1)} }) };
 
       if (merge){
-        // 保持舊有：以檔名為分頁（避免破壞舊流程）
         let name = (f.name.replace(/\.csv$/i,'')||'Sheet').replace(/[\\/?*[\]:]/g,'_').slice(0,MAX_SHEETNAME_LEN);
         let final=name,k=2; while (wb.SheetNames.includes(final)){ const suffix='_'+(k++); final=name.slice(0,MAX_SHEETNAME_LEN-suffix.length)+suffix; }
         XLSX.utils.book_append_sheet(wb, ws, final);
@@ -466,7 +495,6 @@ async function startConversion(){
   }
 
   if (merge){
-    // 加上 000_HeaderMap
     appendHeaderMapSheet(wb, headerAudit);
     const buf=XLSX.write(wb,{bookType:'xlsx',type:'array'});
     saveAs(new Blob([buf],{type:'application/octet-stream'}), outName);
@@ -567,7 +595,6 @@ function appendHeaderMapSheet(wb, headerAudit, groupMap){
   XLSX.utils.book_append_sheet(wb, ws, '000_HeaderMap');
 }
 function sheetNameBySig(groupMap, sig){
-  // 001、002… 依插入順序比對
   let i=1; for (const [k] of groupMap.entries()){ if (k===sig) return String(i).padStart(3,'0'); i++; }
   return null;
 }
