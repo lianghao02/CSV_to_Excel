@@ -1,69 +1,132 @@
+# CSVtoExcel_V4.5.1.html（單檔、已整合主題切換與人性化按鈕）
+
+```html
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-Hant" data-version="4.5.1">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>CSV 轉 Excel 工具 V4.5.1</title>
-  <!-- Libs -->
+
+  <!-- 第三方函式庫（CDN 版） -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
   <style>
-    :root { --brand:#0a66c2; --brand-2:#005bbb; --bg1:#f0f4f8; --bg2:#e6ecf2; --txt:#1f2937; --muted:#6b7280; --radius:16px; }
-    @media (prefers-color-scheme: dark) {
-      :root { --bg1:#0b1220; --bg2:#0b1220; --txt:#e5e7eb; --muted:#9ca3af; --brand:#6aa7ff; --brand-2:#8bb9ff; }
-      body { background: radial-gradient(1200px 800px at 50% -100px, #141b2a 0%, #0b1220 60%); }
-      .container { background: rgba(18,22,35,.8); box-shadow: 0 20px 60px rgba(0,0,0,.45); }
-      .dropzone { background: rgba(255,255,255,.03); border-color: #3b82f6; }
-      .filename-list, .log-box { background: rgba(255,255,255,.03); border-color: rgba(255,255,255,.06); }
+    /* =========================
+     * 主題變數（預設：linkedin 延伸）
+     * ========================= */
+    :root {
+      --bg: #eef5ff; --card:#ffffff; --text:#102a43; --muted:#64748b;
+      --accent:#0a66c2; --accent-2:#2b7de9; --ok:#16a34a; --warn:#f59e0b; --danger:#ef4444;
+      --border:#e5e7eb; --chip-bg:#eff6ff; --chip-text:#1d4ed8;
+      --radius:16px; --shadow:0 12px 28px rgba(0,0,0,.12);
     }
+    /* GitHub Neutral */
+    body[data-theme="github"] {
+      --bg:#f6f8fa; --card:#fff; --text:#1f2328; --muted:#6e7781;
+      --accent:#0969da; --accent-2:#1f6feb; --ok:#2da44e; --warn:#9a6700; --danger:#cf222e;
+      --border:#d0d7de; --chip-bg:#ddf4ff; --chip-text:#0969da;
+    }
+    /* Police Navy & Amber */
+    body[data-theme="police"] {
+      --bg:#0b111e; --card:#0e1526; --text:#e6edf3; --muted:#8b97a7;
+      --accent:#133e87; --accent-2:#1f54b5; --ok:#3ddc97; --warn:#ffc043; --danger:#ff6b6b;
+      --border:#1f2a3d; --chip-bg:rgba(255,192,67,0.12); --chip-text:#ffc043;
+    }
+
+    /* ========== 基本佈局 ========== */
     * { box-sizing: border-box; }
-    body { font-family: system-ui,-apple-system,Segoe UI,Roboto,'Microsoft JhengHei',sans-serif; margin:0; color:var(--txt); background: linear-gradient(to bottom,var(--bg1),var(--bg2)); }
-    .container { width:min(1000px,92vw); margin:clamp(16px,4vw,48px) auto; background:#fff; padding:clamp(16px,3.2vw,36px); border-radius:var(--radius); box-shadow:0 12px 28px rgba(0,0,0,.12); }
-    h1 { margin:0 0 12px; font-weight:700; letter-spacing:.3px; text-align:center; font-size:clamp(20px,3.2vw,28px); color:var(--brand); }
-    .sub { text-align:center; color:var(--muted); margin-bottom:10px; font-size:clamp(12px,2.2vw,14px); }
-    .stats { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-bottom:10px; }
-    .chip { font-size:12px; padding:4px 10px; border-radius:999px; background:#eff6ff; color:#1d4ed8; font-weight:700; }
-    .dropzone { border:2.5px dashed #3b82f6; padding:clamp(18px,4vw,28px); border-radius:14px; text-align:center; color:var(--muted); background:#f8fbff; transition:.2s ease; margin-bottom:18px; }
-    .dropzone:hover { background:#eef6ff; }
-    .dropzone.active { background:#e0efff; border-color:#2563eb; }
-    .toolbar { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; align-items:center; margin:10px 0 16px; }
-    .btn { display:inline-flex; align-items:center; gap:8px; border:0; padding:10px 14px; border-radius:12px; background:var(--brand); color:#fff; cursor:pointer; font-weight:600; box-shadow:0 6px 14px rgba(10,102,194,.25); transition:transform .08s ease, box-shadow .2s ease, background .2s ease; }
-    .btn:hover { background:var(--brand-2); box-shadow:0 10px 20px rgba(10,102,194,.35); }
+    html, body { height: 100%; }
+    body { margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,'Microsoft JhengHei',sans-serif;
+           color:var(--text); background: linear-gradient(to bottom, var(--bg), color-mix(in srgb, var(--bg) 80%, #000 20%)); }
+    .container { width:min(1100px,94vw); margin:clamp(16px,3.6vw,48px) auto; background:var(--card);
+                 border-radius:var(--radius); box-shadow:var(--shadow); padding:clamp(16px,3.2vw,36px); }
+
+    /* Header 區：標題 + 主題切換按鈕 */
+    .header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
+    h1 { margin:0; font-size:clamp(20px,3.2vw,28px); letter-spacing:.3px; color:var(--accent); }
+    .sub { color:var(--muted); font-size:13px; margin:6px 0 0; }
+
+    /* 主題按鈕（更人性化：一鍵切換） */
+    .themes { display:flex; gap:8px; }
+    .theme-btn { display:inline-flex; align-items:center; gap:6px; padding:8px 12px; border-radius:999px; border:1px solid var(--border);
+                 background:#fff0; color:var(--text); cursor:pointer; font-weight:600; }
+    .theme-btn:hover { background:color-mix(in srgb, var(--accent) 10%, transparent); }
+    .theme-btn.active { outline:2px solid var(--accent); outline-offset:2px; }
+
+    /* 即時統計 chip */
+    .stats { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 16px; }
+    .chip { font-size:12px; padding:6px 12px; border-radius:999px; background:var(--chip-bg); color:var(--chip-text); font-weight:700; border:1px solid var(--border); }
+
+    /* 拖曳區 */
+    .dropzone { border:2.5px dashed var(--accent); padding:clamp(18px,4vw,28px); border-radius:14px; text-align:center; color:var(--muted);
+                background:color-mix(in srgb, var(--accent) 4%, white 96%); transition:.2s ease; margin-bottom:18px; }
+    .dropzone:hover { background:color-mix(in srgb, var(--accent) 8%, white 92%); }
+    .dropzone.active { background:color-mix(in srgb, var(--accent) 16%, white 84%); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent); }
+
+    /* 工具列（更人性化分組） */
+    .toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:10px 0 10px; }
+    .toolbar .group { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+    .toolbar .group.primary { flex:1; }
+
+    .btn { display:inline-flex; align-items:center; gap:8px; border:1px solid var(--border); padding:10px 14px; border-radius:12px;
+           background:var(--accent); color:#fff; cursor:pointer; font-weight:700; box-shadow:0 6px 14px rgba(10,102,194,.15);
+           transition:transform .06s ease, box-shadow .2s ease, background .2s ease; }
+    .btn:hover { background:var(--accent-2); box-shadow:0 10px 18px rgba(10,102,194,.25); }
     .btn:active { transform:translateY(1px); }
-    .btn.secondary { background:#e5e7eb; color:#111827; box-shadow:none; }
-    .btn.secondary:hover { background:#d1d5db; }
-    .switch { display:inline-flex; align-items:center; gap:8px; user-select:none; }
+    .btn.secondary { background:transparent; color:var(--text); box-shadow:none; }
+    .btn.secondary:hover { background:color-mix(in srgb, var(--accent) 10%, transparent); }
+
+    .switch { display:inline-flex; align-items:center; gap:8px; user-select:none; padding:6px 10px; border-radius:10px; border:1px dashed var(--border); }
     .switch input { appearance:none; width:44px; height:24px; background:#d1d5db; border-radius:999px; position:relative; outline:none; cursor:pointer; transition:background .2s ease; }
     .switch input:checked { background:#60a5fa; }
     .switch input::after { content:""; position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:999px; background:#fff; transition:transform .2s ease; }
     .switch input:checked::after { transform:translateX(20px); }
     .switch span { color:var(--muted); font-weight:600; }
-    .filename-list { margin-top:12px; font-size:13px; max-height:220px; overflow:auto; border:1px solid #e5e7eb; background:#fff; border-radius:12px; padding:10px; }
-    .file-row { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:6px 4px; border-bottom:1px dashed #eee; }
+
+    .text { border:1px solid var(--border); padding:10px 12px; border-radius:12px; min-width:260px; max-width:min(520px,80vw); }
+    .hint { font-size:12px; color:var(--muted); margin-top:6px; }
+
+    /* 檔名列與清單 */
+    .filename-list { margin-top:12px; font-size:13px; max-height:240px; overflow:auto; border:1px solid var(--border); background:var(--card); border-radius:12px; padding:10px; }
+    .file-row { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:6px 4px; border-bottom:1px dashed var(--border); }
     .file-row:last-child { border-bottom:0; }
     .file-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .badge { font-size:11px; padding:2px 8px; border-radius:999px; background:#eff6ff; color:#1d4ed8; font-weight:700; }
-    .progress { width:100%; height:14px; background:#e5e7eb; border-radius:999px; overflow:hidden; margin-top:14px; }
-    .progress-bar { height:100%; width:0%; background:linear-gradient(90deg,#3b82f6,#60a5fa,#93c5fd); transition:width .35s ease; }
+    .badge { font-size:11px; padding:2px 8px; border-radius:999px; background:var(--chip-bg); color:var(--chip-text); font-weight:700; }
+
+    /* 進度列 */
+    .progress { width:100%; height:14px; background:#e5e7eb; border-radius:999px; overflow:hidden; margin-top:14px; border:1px solid var(--border); }
+    .progress-bar { height:100%; width:0%; background:linear-gradient(90deg,var(--accent),var(--accent-2)); transition:width .35s ease; }
+
+    /* 日誌 */
     .log { margin-top:14px; }
-    .log h3 { margin:18px 0 8px; font-size:14px; color:#334155; }
-    .log-box { height:260px; overflow:auto; border:1px solid #e5e7eb; border-radius:12px; background:#fff; padding:10px; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace; font-size:12px; }
-    .input-inline { display:flex; justify-content:center; gap:10px; flex-wrap:wrap; margin-top:8px; }
-    .text { border:1px solid #e5e7eb; padding:10px 12px; border-radius:12px; min-width:260px; max-width:min(520px,80vw); }
-    .hint { font-size:12px; color:var(--muted); text-align:center; margin-top:6px; }
+    .log h3 { margin:18px 0 8px; font-size:14px; color:var(--muted); }
+    .log-box { height:280px; overflow:auto; border:1px solid var(--border); border-radius:12px; background:var(--card);
+               padding:10px; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace; font-size:12px; }
+
+    /* Toast */
     .toast { position:fixed; inset:auto 12px 12px auto; background:#111827; color:#fff; padding:10px 14px; border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.25); opacity:0; transform:translateY(8px); pointer-events:none; transition:.25s ease; z-index:50; }
     .toast.show { opacity:1; transform:translateY(0); }
+
+    /* 暗色主題額外修飾（police） */
+    body[data-theme="police"] .container { background: rgba(14,21,38,.92); box-shadow: 0 20px 60px rgba(0,0,0,.45); }
+    body[data-theme="police"] .dropzone { background: rgba(255,255,255,.04); }
+    body[data-theme="police"] .filename-list, body[data-theme="police"] .log-box { background: rgba(255,255,255,.03); }
   </style>
 </head>
-<body>
+<body data-theme="linkedin">
   <div class="container">
-    <h1>CSV 轉 Excel 工具 V4.5.1</h1>
-    <div class="sub">
-      拖曳 <b>CSV 檔或資料夾</b> 進來，或用下方按鈕選取。<br>
-      ✅ 自動偵測編碼（UTF-8／Big5／GB18030）避免亂碼｜金額自動格式化（#,##0）・可統計・避免科學記號。<br>
-      🧩 <b>依規格化標題合併成分頁</b>（分頁 001/002…，不同來源以空白列分隔；另附 000_HeaderMap 對照表）<br>
-      🔒 規格化規則：<b>戶名 ≠ 帳號</b>、<b>承租人</b>與<b>被害人</b>不合併、「資料提供日帳戶餘額/結餘」統一。
+    <div class="header">
+      <div>
+        <h1>CSV 轉 Excel 工具 V4.5.1</h1>
+        <p class="sub">拖曳 <b>CSV 檔或資料夾</b> 進來，或用下方按鈕選取。自動偵測編碼（UTF-8／Big5／GB18030）、金額自動格式（#,##0）、避免科學記號。</p>
+      </div>
+      <div class="themes" aria-label="主題切換">
+        <button id="btnThemeGithub" class="theme-btn" title="GitHub Neutral">🟦 GitHub</button>
+        <button id="btnThemePolice" class="theme-btn" title="Police Navy & Amber">🛡️ Police</button>
+      </div>
     </div>
 
     <!-- 即時統計 -->
@@ -81,36 +144,47 @@
       </div>
     </div>
 
+    <!-- 工具列：更人性化配置（主要操作在左，輔助在右） -->
     <div class="toolbar">
-      <input id="picker" type="file" multiple webkitdirectory directory accept=".csv" style="display:none" />
-      <button class="btn" id="btnPick">選擇 CSV / 資料夾</button>
-
-      <!-- 原合併模式 -->
-      <label class="switch"><input type="checkbox" id="mergeMode" checked /><span>合併成一個 Excel（原模式）</span></label>
-
-      <button class="btn secondary" id="btnClear">清除清單</button>
-      <button class="btn" id="btnStart">開始轉換（原模式）</button>
-
-      <!-- 新：依規格化標題合併 -->
-      <button class="btn" id="btnGroupByHeader" title="先規格化標題，再將同組標題合併到同一分頁；分頁名 001/002…">依標題合併成分頁</button>
+      <div class="group primary">
+        <input id="picker" type="file" multiple webkitdirectory directory accept=".csv" style="display:none" />
+        <button class="btn" id="btnPick" title="選擇 CSV 或整個資料夾">
+          📂 選擇檔案/資料夾
+        </button>
+        <button class="btn" id="btnStart" title="原模式：逐檔輸出或合併成一個 Excel">
+          ▶️ 開始轉換（原模式）
+        </button>
+        <button class="btn" id="btnGroupByHeader" title="先規格化標題，再把相同組合併到同一分頁">
+          🧩 依標題合併成分頁
+        </button>
+      </div>
+      <div class="group">
+        <label class="switch" title="合併多檔到單一 Excel（原模式用）">
+          <input type="checkbox" id="mergeMode" checked />
+          <span>合併成一個 Excel</span>
+        </label>
+        <button class="btn secondary" id="btnClear" title="清空清單與統計">🧹 清除</button>
+      </div>
     </div>
 
-    <div class="input-inline">
-      <input id="mergeFilename" class="text" type="text" placeholder="合併檔名（原模式預設：合併檔案.xlsx）" />
+    <!-- 檔名欄位（兩種模式皆適用） -->
+    <div class="toolbar" style="margin-top:0;">
+      <div class="group primary">
+        <input id="mergeFilename" class="text" type="text" placeholder="輸出檔名（兩種模式皆適用，省略則自動產生）" />
+        <div class="hint">原模式：若勾選「合併成一個 Excel」則使用此名稱。標題合併模式：優先採用此名稱。</div>
+      </div>
     </div>
 
     <div id="fileList" class="filename-list" aria-live="polite"></div>
     <div class="progress"><div id="bar" class="progress-bar"></div></div>
-    <div class="hint">
-      自動修正「端未機/端末機、身分證統編號/身分證統一編號、資料提供日帳戶餘額/資料提供日帳戶結餘…」等寫法，再合併分頁。<br>
-      產出的 <b>000_HeaderMap</b> 可快速檢視每個來源檔「原始標題 → 規格化後標題」與分頁歸屬。
-    </div>
+    <div class="hint">規格化重點：<b>戶名 ≠ 帳號</b>、<b>承租人</b>與<b>被害人</b>不合併、「資料提供日帳戶餘額/結餘」統一為「資料提供日帳戶結餘」。產出 <b>000_HeaderMap</b> 可檢視對照。</div>
 
     <div class="log">
       <h3>日誌輸出</h3>
       <div id="log" class="log-box" role="log"></div>
     </div>
   </div>
+
   <div id="toast" class="toast" role="status"></div>
 
   <!-- 主邏輯 -->
