@@ -1,20 +1,20 @@
 /* =========================================================================
- *  CSV to Excel V4.5.1  (SINGLE-FILE LITE)
- *  說明：維持「單檔運行」，不使用模組。加入章節旗標、統一縮排、收斂事件綁定到 init()，
- *        並整合主題切換（GitHub / Police 按鈕）。
- *  目錄：
- *   A. 設定常數 & 欄位別名
- *   B. 全域狀態 & DOM 取得
- *   C. 小工具（toast/log/寬度/格式化/清單/統計）
- *   D. 檔案載入（拖曳/資料夾遞迴/清單渲染）
- *   E. 編碼偵測 & 解碼（UTF-8/Big5/GB18030）
- *   F. 規格化核心（標題清理、別名、近似比對）
- *   G. 欄位偵測 & 金額/字串格式
- *   H. 解析 CSV → 列資料（含統計）
- *   I. 輸出 Excel（工作表欄寬/格式/匯出）
- *   J. 轉換流程（原模式 / 依標題合併）
- *   K. HeaderMap 對照表
- *   L. 啟動與事件綁定（init）
+ * CSV to Excel V4.5.1  (SINGLE-FILE LITE)
+ * 說明：維持「單檔運行」，不使用模組。加入章節旗標、統一縮排、收斂事件綁定到 init()，
+ * 並整合主題切換（GitHub / Police 按鈕）。
+ * 目錄：
+ * A. 設定常數 & 欄位別名
+ * B. 全域狀態 & DOM 取得
+ * C. 小工具（toast/log/寬度/格式化/清單/統計）
+ * D. 檔案載入（拖曳/資料夾遞迴/清單渲染）
+ * E. 編碼偵測 & 解碼（UTF-8/Big5/GB18030）
+ * F. 規格化核心（標題清理、別名、近似比對）
+ * G. 欄位偵測 & 金額/字串格式
+ * H. 解析 CSV → 列資料（含統計）
+ * I. 輸出 Excel（工作表欄寬/格式/匯出）
+ * J. 轉換流程（原模式 / 依標題合併）
+ * K. HeaderMap 對照表
+ * L. 啟動與事件綁定（init）
  * ========================================================================= */
 
 // ===== A. 設定常數 & 欄位別名 =====
@@ -82,6 +82,7 @@ const chipFiles   = document.getElementById('chip-files');
 const chipExpense = document.getElementById('chip-expense');
 const chipIncome  = document.getElementById('chip-income');
 const chipBalance = document.getElementById('chip-balance');
+const btnCopyLog = document.getElementById('btnCopyLog'); // 【優化：複製日誌按鈕】
 
 // 主題：按鈕
 const btnThemeGithub = document.getElementById('btnThemeGithub');
@@ -141,6 +142,11 @@ function renderChips() {
   chipExpense.textContent = `支出合計 ${formatThousands(totals.expense)}`;
   chipIncome.textContent  = `存入合計 ${formatThousands(totals.income)}`;
   chipBalance.textContent = `餘額合計 ${formatThousands(totals.balance)}`;
+  
+  // 【優化：餘額顏色提示】
+  const balanceVal = totals.balance;
+  chipBalance.style.color = (balanceVal > 0 ? 'var(--ok)' : (balanceVal < 0 ? 'var(--danger)' : 'var(--chip-text)'));
+  chipBalance.style.borderColor = (balanceVal > 0 ? 'var(--ok)' : (balanceVal < 0 ? 'var(--danger)' : 'var(--border)'));
 }
 function resetTotals() {
   totals.expense = 0;
@@ -604,9 +610,23 @@ function init(){
   btnPick.addEventListener('click', () => picker.click());
   picker.addEventListener('change', (e) => handleFiles(e.target.files));
 
+  // 【優化：拖曳區點擊觸發選擇器】
+  dropzone.addEventListener('click', () => picker.click());
+
+  // 合併開關容器
+  const mergeSwitch = document.getElementById('mergeSwitchContainer');
+
   // 主要動作
-  btnStart.addEventListener('click', startConversion);
-  btnGroupByHeader.addEventListener('click', groupByHeaderConversion);
+  btnStart.addEventListener('click', () => {
+    // 【優化：原模式啟動時，高亮合併開關】
+    if (mergeSwitch) mergeSwitch.style.opacity = '1';
+    startConversion();
+  });
+  btnGroupByHeader.addEventListener('click', () => {
+    // 【優化：依標題合併時，淡出合併開關】
+    if (mergeSwitch) mergeSwitch.style.opacity = '0.35';
+    groupByHeaderConversion();
+  });
 
   // 清除
   btnClear.addEventListener('click', () => {
@@ -614,6 +634,16 @@ function init(){
     resetTotals();
     renderFileList(); renderChips();
     log('🧹 已清除清單與統計');
+  });
+
+  // 【優化：複製日誌】
+  btnCopyLog && btnCopyLog.addEventListener('click', () => {
+    const logContent = Array.from(logBox.childNodes).map(n => n.textContent).join('\n');
+    navigator.clipboard.writeText(logContent).then(() => {
+      showToast('日誌已複製到剪貼簿');
+    }).catch(err => {
+      showToast('複製日誌失敗: ' + err.message);
+    });
   });
 
   // DnD
