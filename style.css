@@ -1,0 +1,194 @@
+:root {
+    --primary-color: #4f46e5;
+    --primary-hover: #4338ca;
+    --bg-color: #f3f4f6;
+    --card-bg: #ffffff;
+    --text-color: #1f2937;
+    --text-secondary: #6b7280;
+    --border-color: #e5e7eb;
+    --success-color: #10b981;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.container {
+    background-color: var(--card-bg);
+    border-radius: 16px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 600px;
+    padding: 40px;
+    transition: transform 0.3s ease;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+header h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-color);
+    margin-bottom: 8px;
+}
+
+header p {
+    color: var(--text-secondary);
+    font-size: 1rem;
+}
+
+.drop-zone {
+    border: 2px dashed var(--border-color);
+    border-radius: 12px;
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background-color: #fafafa;
+}
+
+.drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--primary-color);
+    background-color: #eef2ff;
+}
+
+.drop-zone .icon {
+    font-size: 3rem;
+    margin-bottom: 15px;
+}
+
+.drop-zone p {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.file-list {
+    margin-top: 20px;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.file-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    background-color: #f9fafb;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+    border: 1px solid var(--border-color);
+}
+
+.file-item .remove-btn {
+    color: #ef4444;
+    cursor: pointer;
+    font-weight: bold;
+    margin-left: 10px;
+}
+
+.options-section {
+    margin-top: 30px;
+}
+
+.options-section h2 {
+    font-size: 1.1rem;
+    margin-bottom: 15px;
+    color: var(--text-color);
+}
+
+.radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.radio-option {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+.radio-option:hover {
+    background-color: #f9fafb;
+}
+
+.radio-option input {
+    display: none;
+}
+
+.radio-custom {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #d1d5db;
+    border-radius: 50%;
+    margin-right: 12px;
+    position: relative;
+}
+
+.radio-option input:checked + .radio-custom {
+    border-color: var(--primary-color);
+}
+
+.radio-option input:checked + .radio-custom::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 10px;
+    height: 10px;
+    background-color: var(--primary-color);
+    border-radius: 50%;
+}
+
+.radio-option input:checked ~ .label-text {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+.action-section {
+    margin-top: 30px;
+}
+
+#convert-btn {
+    width: 100%;
+    padding: 14px;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+#convert-btn:hover {
+    background-color: var(--primary-hover);
+}
+
+#convert-btn:disabled {
+    background-color: #9ca3af;
+    cursor: not-allowed;
+}

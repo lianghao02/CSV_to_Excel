@@ -1,14 +1,51 @@
-<!doctype html>
-<html lang="zh-Hant">
-<meta charset="utf-8">
-<title>CSV to Excel - 最新版</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="refresh" content="0; url=CSVtoExcel_V4.5.1.html?v=20251019-1">
-<script>
-  // 保險：少數環境不吃 meta refresh 時
-  location.replace('CSVtoExcel_V4.5.1.html?v=20251019-1');
-</script>
-<noscript>
-  自動導向中… <a href="CSVtoExcel_V4.5.1.html?v=20251019-1">點此開啟最新版</a>
-</noscript>
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV 轉 Excel 工具</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- SheetJS Library -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>CSV 轉 Excel 轉換器</h1>
+            <p>安全、快速、精準的金融資料轉換工具</p>
+        </header>
+
+        <main>
+            <div class="upload-section">
+                <div id="drop-zone" class="drop-zone">
+                    <div class="icon">📂</div>
+                    <p>拖放 CSV 檔案至此，或點擊選擇檔案</p>
+                    <input type="file" id="file-input" multiple accept=".csv" hidden>
+                </div>
+                <div id="file-list" class="file-list"></div>
+            </div>
+
+            <div class="options-section">
+                <h2>匯出設定</h2>
+                <div class="radio-group">
+                    <label class="radio-option">
+                        <input type="radio" name="export-mode" value="individual" checked>
+                        <span class="radio-custom"></span>
+                        <span class="label-text">個別儲存 (原檔名)</span>
+                    </label>
+                    <label class="radio-option">
+                        <input type="radio" name="export-mode" value="merged">
+                        <span class="radio-custom"></span>
+                        <span class="label-text">合併儲存 (分頁 01, 02...)</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="action-section">
+                <button id="convert-btn" disabled>開始轉換</button>
+            </div>
+        </main>
+    </div>
+    <script src="script.js"></script>
+</body>
 </html>
