@@ -3,8 +3,21 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CSV 轉 Excel 工具</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="安全、快速、精準的金融資料轉換工具，支援 CSV 轉 Excel。">
+    <meta name="author" content="LiangHao">
+    <title>CSV 轉 Excel 工具 | LiangHao Dev</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <meta property="og:title" content="CSV 轉 Excel 工具 | LiangHao Dev">
+    <meta property="og:description" content="安全、快速、精準的金融資料轉換工具，支援 CSV 轉 Excel。">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://lianghao02.github.io/CSV_to_Excel/">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Noto+Sans+TC:wght@400;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
     <!-- SheetJS Library (Local) -->
     <script src="xlsx.full.min.js"></script>
@@ -13,14 +26,32 @@
 <body>
     <div class="container">
         <header>
-            <h1>CSV 轉 Excel 轉換器</h1>
+            <h1><i class="fa-solid fa-file-csv"></i> CSV 轉 Excel 轉換器</h1>
             <p>安全、快速、精準的金融資料轉換工具</p>
         </header>
 
         <main>
+            <!-- Usage Guide Section -->
+            <section class="usage-guide">
+                <div class="step">
+                    <div class="step-icon"><i class="fa-solid fa-upload"></i></div>
+                    <span>1. 拖曳檔案</span>
+                </div>
+                <div class="step-arrow"><i class="fa-solid fa-chevron-right"></i></div>
+                <div class="step">
+                    <div class="step-icon"><i class="fa-solid fa-sliders"></i></div>
+                    <span>2. 選擇模式</span>
+                </div>
+                <div class="step-arrow"><i class="fa-solid fa-chevron-right"></i></div>
+                <div class="step">
+                    <div class="step-icon"><i class="fa-solid fa-bolt"></i></div>
+                    <span>3. 開始轉換</span>
+                </div>
+            </section>
+
             <div class="upload-section">
                 <div id="drop-zone" class="drop-zone">
-                    <div class="icon">📂</div>
+                    <div class="icon"><i class="fa-solid fa-folder-open"></i></div>
                     <p>拖放 CSV 檔案至此，或點擊選擇檔案</p>
                     <input type="file" id="file-input" multiple accept=".csv" hidden>
                 </div>
@@ -47,6 +78,10 @@
                 <button id="convert-btn" disabled>開始轉換</button>
             </div>
         </main>
+
+        <footer>
+            <p>&copy; 2025 CSV to Excel Tool. All rights reserved.</p>
+        </footer>
     </div>
     <script src="script.js"></script>
 </body>
